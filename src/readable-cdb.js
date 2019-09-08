@@ -46,7 +46,7 @@ Readable.prototype.open = function open(callback) {
     return callback(null, self);
   }
 
-  fs.open(this.file, 'r+', readHeader);
+  fs.open(this.file, 'r', readHeader);
 };
 
 Readable.prototype.get = function get(key, offsetParam, callbackParam) {
