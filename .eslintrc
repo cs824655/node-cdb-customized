@@ -1,0 +1,77 @@
+{
+  "rules": {
+    "arrow-parens": ["error", "as-needed", {
+      "requireForBlockBody": true
+    }],
+    "no-console": 0,
+    "no-underscore-dangle": 0,
+    "no-unused-vars": ["error", {
+      "argsIgnorePattern": "next"
+    }],
+    "no-use-before-define": ["warn", {
+      "variables": false
+    }],
+    "no-multi-str": 0,
+    "max-len": ["warn", {
+      "code": 200
+    }],
+    "dot-location": ["error", "property"],
+    "indent": ["error", 2, {
+      "SwitchCase": 1,
+      "VariableDeclarator": 1,
+      "outerIIFEBody": 1,
+      "MemberExpression": 0,
+      "FunctionDeclaration": {
+        "parameters": 1,
+        "body": 1
+      },
+      "FunctionExpression": {
+        "parameters": 1,
+        "body": 1
+      },
+      "CallExpression": {
+        "arguments": 1
+      },
+      "ArrayExpression": 1,
+      "ObjectExpression": 1,
+      "ImportDeclaration": 1,
+      "flatTernaryExpressions": false,
+      "ignoredNodes": ["JSXElement", "JSXElement > *", "JSXAttribute", "JSXIdentifier", "JSXNamespacedName", "JSXMemberExpression", "JSXSpreadAttribute", "JSXExpressionContainer", "JSXOpeningElement", "JSXClosingElement", "JSXText", "JSXEmptyExpression", "JSXSpreadChild"],
+      "ignoreComments": false
+    }],
+    "newline-per-chained-call": ["error", {
+      "ignoreChainWithDepth": 5
+    }],
+    "object-curly-newline": ["error", {
+      "ObjectExpression": {
+        "minProperties": 5,
+        "multiline": true,
+        "consistent": true
+      },
+      "ObjectPattern": {
+        "minProperties": 5,
+        "multiline": true,
+        "consistent": true
+      },
+      "ImportDeclaration": {
+        "minProperties": 4,
+        "multiline": true,
+        "consistent": true
+      },
+      "ExportDeclaration": {
+        "minProperties": 4,
+        "multiline": true,
+        "consistent": true
+      }
+    }]
+  },
+  "env": {
+    "node": true,
+    "mocha": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 9,
+    "ecmaFeatures": {}
+  },
+  "extends": ["airbnb-base"]
+}

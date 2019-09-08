@@ -1,112 +1,112 @@
-'use strict';
-
 const vows = require('vows');
 const assert = require('assert');
 const fs = require('fs');
-const writable = require('../src/writable-cdb');
-const readable = require('../src/readable-cdb');
+const Writable = require('../src/writable-cdb');
+const Readable = require('../src/readable-cdb');
+
 const tempFile = 'test/tmp';
 
 try {
-    fs.unlinkSync(tempFile);
-} catch (err) {}
+  fs.unlinkSync(tempFile);
+} catch (err) { // eslint-disable-line no-empty
+}
 
 vows.describe('cdb-utf8-test').addBatch({
-    'A writable cdb': {
-        topic: function() {
-            return new writable(tempFile);
+  'A writable cdb': {
+    topic() {
+      return new Writable(tempFile);
+    },
+
+    'when opened': {
+      topic(cdb) {
+        cdb.open(this.callback);
+      },
+
+      'should write UTF8 characters': {
+        topic(cdb) {
+          cdb.put('é', 'unicode test');
+          cdb.put('€', 'unicode test');
+          cdb.put('key', 'ᚠᛇᚻ');
+          cdb.put('대한민국', '안성기');
+
+          cdb.close(this.callback);
         },
 
-        'when opened': {
-            topic: function(cdb) {
-                cdb.open(this.callback);
-            },
-
-            'should write UTF8 characters': {
-                topic: function(cdb) {
-                    cdb.put('é', 'unicode test');
-                    cdb.put('€', 'unicode test');
-                    cdb.put('key', 'ᚠᛇᚻ');
-                    cdb.put('대한민국', '안성기');
-
-                    cdb.close(this.callback);
-                },
-
-                'and close successfully': function(err) {
-                    assert.equal(err, null);
-                },
-            }
-        }
-    }
+        'and close successfully': (err) => {
+          assert.equal(err, null);
+        },
+      },
+    },
+  },
 }).addBatch({
-    'A readable cdb should find that': {
-        topic: function() {
-            (new readable(tempFile)).open(this.callback);
-        },
+  'A readable cdb should find that': {
+    topic() {
+      (new Readable(tempFile)).open(this.callback);
+    },
 
-        'é': {
-            topic: function(cdb) {
-                cdb.get('é', this.callback);
-            },
+    é: {
+      topic(cdb) {
+        cdb.get('é', this.callback);
+      },
 
-            'exists': function(err, data) {
-                assert.isNull(err);
-                assert.isNotNull(data);
-            },
+      exists(err, data) {
+        assert.isNull(err);
+        assert.isNotNull(data);
+      },
 
-            'has the right value': function(err, data) {
-                assert.equal(data, 'unicode test');
-            }
-        },
+      'has the right value': (err, data) => {
+        assert.equal(data, 'unicode test');
+      },
+    },
 
-        '€': {
-            topic: function(cdb) {
-                cdb.get('€', this.callback);
-            },
+    '€': {
+      topic(cdb) {
+        cdb.get('€', this.callback);
+      },
 
-            'exists': function(err, data) {
-                assert.isNull(err);
-                assert.isNotNull(data);
-            },
+      exists(err, data) {
+        assert.isNull(err);
+        assert.isNotNull(data);
+      },
 
-            'has the right value': function(err, data) {
-                assert.equal(data, 'unicode test');
-            }
-        },
+      'has the right value': (err, data) => {
+        assert.equal(data, 'unicode test');
+      },
+    },
 
-        'key': {
-            topic: function(cdb) {
-                cdb.get('key', this.callback);
-            },
+    key: {
+      topic(cdb) {
+        cdb.get('key', this.callback);
+      },
 
-            'exists': function(err, data) {
-                assert.isNull(err);
-                assert.isNotNull(data);
-            },
+      exists(err, data) {
+        assert.isNull(err);
+        assert.isNotNull(data);
+      },
 
-            'has the right value': function(err, data) {
-                assert.equal(data, 'ᚠᛇᚻ');
-            }
-        },
+      'has the right value': (err, data) => {
+        assert.equal(data, 'ᚠᛇᚻ');
+      },
+    },
 
-        '대한민국': {
-            topic: function(cdb) {
-                cdb.get('대한민국', this.callback);
-            },
+    대한민국: {
+      topic(cdb) {
+        cdb.get('대한민국', this.callback);
+      },
 
-            'exists': function(err, data) {
-                assert.isNull(err);
-                assert.isNotNull(data);
-            },
+      exists(err, data) {
+        assert.isNull(err);
+        assert.isNotNull(data);
+      },
 
-            'has the right value': function(err, data) {
-                assert.equal(data, '안성기');
-            }
-        },
+      'has the right value': (err, data) => {
+        assert.equal(data, '안성기');
+      },
+    },
 
-        teardown: function() {
-            fs.unlinkSync(tempFile);
-        }
-    }
+    teardown() {
+      fs.unlinkSync(tempFile);
+    },
+  },
 
 }).export(module);

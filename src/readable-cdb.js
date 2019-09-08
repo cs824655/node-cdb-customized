@@ -1,147 +1,174 @@
-'use strict';
-
 const fs = require('fs');
 const { cdbHash } = require('./cdb-util');
-const HEADER_SIZE = 2048;
-const TABLE_SIZE  = 256;
 
-function readable(file) {
+const HEADER_SIZE = 2048;
+const TABLE_SIZE = 256;
+
+function Readable(file) {
   this.file = file;
   this.header = new Array(TABLE_SIZE);
-  
+
   this.fd = null;
   this.bookmark = null;
-};
+}
 
-readable.prototype.open = function(callback) {
+Readable.prototype.open = function open(callback) {
   const self = this;
-  
-  fs.open(this.file, 'r+', readHeader);
-  
+
   function readHeader(err, fd) {
     if (err) {
       return callback(err);
     }
-    
+
     self.fd = fd;
-    fs.read(fd, new Buffer(HEADER_SIZE), 0, HEADER_SIZE, 0, parseHeader);
+    // eslint-disable-next-line no-use-before-define
+    return fs.read(fd, Buffer.from({ length: HEADER_SIZE }), 0, HEADER_SIZE, 0, parseHeader);
   }
-  
+
   function parseHeader(err, bytesRead, buffer) {
     if (err) {
       return callback(err);
     }
-    
-    let bufferPosition = 0;    
-    for (let i = 0; i < TABLE_SIZE; i++) {
-      let position = buffer.readUInt32LE(bufferPosition);
-      let slotCount = buffer.readUInt32LE(bufferPosition + 4);
-      
+
+    let bufferPosition = 0;
+    for (let i = 0; i < TABLE_SIZE; i += 1) {
+      const position = buffer.readUInt32LE(bufferPosition);
+      const slotCount = buffer.readUInt32LE(bufferPosition + 4);
+
       self.header[i] = {
-        position: position,
-        slotCount: slotCount
+        position,
+        slotCount,
       };
-      
+
       bufferPosition += 8;
     }
-    
-    callback(null, self);
+
+    return callback(null, self);
   }
+
+  fs.open(this.file, 'r+', readHeader);
 };
 
-readable.prototype.get = function(key, offset, callback) {
-  const hash = cdbHash(key);
-  const { position, slotCount } = this.header[hash & 255];
-  const slot = (hash >>> 8) % slotCount;
-  const trueKeyLength = Buffer.byteLength(key);
-  const self = this;
-  let recordPosition, keyLength, dataLength;
-  
-  if (typeof(offset) == 'function') {
+Readable.prototype.get = function get(key, offsetParam, callbackParam) {
+  let offset = offsetParam;
+  let callback = callbackParam;
+
+  if (typeof (offset) === 'function') {
     callback = offset;
     offset = 0;
   }
-  
+
+  // console.log(`*********** Readable.get ${key} offset: ${offset}`);
+
+  const hash = cdbHash(key);
+  // eslint-disable-next-line no-bitwise
+  const { position, slotCount } = this.header[hash & 255];
+  // console.log(`*********** position ${position} slotCount: ${slotCount}`);
+
+  // eslint-disable-next-line no-bitwise
+  let slot = (hash >>> 8) % slotCount;
+  const trueKeyLength = Buffer.byteLength(key);
+  const self = this;
+  let recordPosition;
+  let keyLength;
+  let dataLength;
+
   if (slotCount === 0) {
+    // console.log('*********** did not find data because slotCount is 0');
     return callback(null, null);
   }
-  
-  readSlot(slot);
-  
-  function readSlot(slot) {
-    const hashPosition = position + ((slot % slotCount) * 8);
-    
-    fs.read(self.fd, new Buffer(8), 0, 8, hashPosition, checkHash);
+
+  function readSlot(currentSlot) {
+    const hashPosition = position + ((currentSlot % slotCount) * 8);
+    // console.log(`*********** reading slot ${currentSlot} at ${hashPosition}`);
+
+    // eslint-disable-next-line no-use-before-define
+    fs.read(self.fd, Buffer.from({ length: 8 }), 0, 8, hashPosition, checkHash);
   }
-  
+
   function checkHash(err, bytesRead, buffer) {
     if (err) {
       return callback(err);
     }
-    
+
     const recordHash = buffer.readUInt32LE(0);
     recordPosition = buffer.readUInt32LE(4);
-    
-    if (recordHash == hash) {
-      fs.read(self.fd, new Buffer(8), 0, 8, recordPosition, readKey);
-    } else if (recordHash === 0) {
-      callback(null, null);
-    } else {
-      readSlot(++slot);
+    // console.log(`*********** recordHash 0x${recordHash.toString(16)} recordPosition 0x${recordPosition.toString(16)}`);
+
+    if (recordHash === hash) {
+      // eslint-disable-next-line no-use-before-define
+      return fs.read(self.fd, Buffer.from({ length: 8 }), 0, 8, recordPosition, readKey);
     }
+    if (recordHash === 0) {
+      // console.log('*********** did not find data because there are no more records');
+      return callback(null, null);
+    }
+    // console.log('*********** searching in next slot because hash is different');
+    slot += 1;
+    return readSlot(slot);
   }
-  
+
   function readKey(err, bytesRead, buffer) {
     if (err) {
       return callback(err);
     }
-    
+
     keyLength = buffer.readUInt32LE(0);
     dataLength = buffer.readUInt32LE(4);
-    
+
     // In the rare case that there is a hash collision, check the key size
     // to prevent reading in a key that will definitely not match.
-    if (keyLength != trueKeyLength) {
-      return readSlot(++slot);
+    if (keyLength !== trueKeyLength) {
+      // console.log('*********** searching in next slot because key length is different');
+      slot += 1;
+      return readSlot(slot);
     }
-    
-    fs.read(self.fd, new Buffer(keyLength), 0, keyLength, recordPosition + 8, checkKey);
+
+    // eslint-disable-next-line no-use-before-define
+    return fs.read(self.fd, Buffer.from({ length: keyLength }), 0, keyLength, recordPosition + 8, checkKey);
   }
-  
+
   function checkKey(err, bytesRead, buffer) {
     if (err) {
       return callback(err);
     }
-    
-    if (buffer.toString() == key && offset === 0) {
-      fs.read(self.fd, new Buffer(dataLength), 0, dataLength, recordPosition + 8 + keyLength, returnData);
-    } else if (offset !== 0) {
-      offset--;
-      readSlot(++slot);
-    } else {
-      readSlot(++slot);
+
+    if (buffer.toString() === key) {
+      // console.log('*********** found key');
+      if (offset === 0) {
+        // eslint-disable-next-line no-use-before-define
+        return fs.read(self.fd, Buffer.from({ length: dataLength }), 0, dataLength, recordPosition + 8 + keyLength, returnData);
+      }
+      // console.log(`*********** reducing offset ${offset} by 1`);
+      offset -= 1;
     }
+    slot += 1;
+    return readSlot(slot);
   }
-  
+
   function returnData(err, bytesRead, buffer) {
     // Fill out bookmark information so getNext() will work
-    self.bookmark = function(newCallback) {
+    self.bookmark = function bookmark(newCallback) {
       callback = newCallback;
-      readSlot(++slot);
+      slot += 1;
+      readSlot(slot);
     };
-    
+
+    // console.log(`*********** found data: ${buffer.toString()}`);
     callback(err, buffer);
   }
+
+  return readSlot(slot);
 };
 
-readable.prototype.getNext = function(callback) {
+Readable.prototype.getNext = function getNext(callback) {
   if (this.bookmark) {
     this.bookmark(callback);
   }
 };
 
-readable.prototype.close = function(callback) {
-  fs.close(this.fd, callback);
+Readable.prototype.close = function close(callback) {
+  fs.close(this.fd, callback || (() => {}));
 };
 
-module.exports = readable;
+module.exports = Readable;

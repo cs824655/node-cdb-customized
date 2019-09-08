@@ -8,9 +8,13 @@
     "url": "https://github.com/ozomer/node-cdb-64.git"
   },
   "devDependencies": {
+    "eslint": "^6.3.0",
+    "eslint-config-airbnb-base": "^14.0.0",
+    "eslint-plugin-import": "^2.18.2",
     "vows": "^0.8.0"
   },
   "scripts": {
+    "lint": "eslint ./src/ --ignore-path .gitignore",
     "test": "vows --spec"
   },
   "keywords": [

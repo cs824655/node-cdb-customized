@@ -1,52 +1,52 @@
-'use strict';
-
 const vows = require('vows');
 const assert = require('assert');
 const fs = require('fs');
-const writable = require('../src/writable-cdb');
-const readable = require('../src/readable-cdb');
+const Writable = require('../src/writable-cdb');
+const Readable = require('../src/readable-cdb');
+
 const tempFile = 'test/tmp';
 const fakeFile = 'test/doesntexist';
 
 try {
   fs.unlinkSync(tempFile);
-} catch (err) {}
+} catch (err) { // eslint-disable-line no-empty
+}
 
 vows.describe('cdb-test').addBatch({
   'A writable cdb': {
-    topic: function() {
-      return new writable(tempFile);
+    topic() {
+      return new Writable(tempFile);
     },
-    
-    'should not create a file when instantiated': function() {
-      assert.throws(function() {
+
+    'should not create a file when instantiated': () => {
+      assert.throws(() => {
         fs.statSync(tempFile);
       }, Error);
     },
-    
-    'should respond to put': function(cdb) {
+
+    'should respond to put': (cdb) => {
       assert.isFunction(cdb.put);
     },
-    
-    'should throw an error if not opened': function(cdb) {
+
+    'should throw an error if not opened': (cdb) => {
       assert.throws(cdb.put, Error);
     },
-    
+
     'when opened': {
-      topic: function(cdb) {
+      topic(cdb) {
         cdb.open(this.callback);
       },
-      
-      'should not error': function(err, cdb) {
+
+      'should not error': (err, cdb) => { // eslint-disable-line no-unused-vars
         assert.equal(err, null);
       },
-      
-      'should create a file': function(err, cdb) {
+
+      'should create a file': (err, cdb) => { // eslint-disable-line no-unused-vars
         assert.isObject(fs.statSync(tempFile));
       },
-      
-      'should add records without exception': function(cdb) {
-        assert.doesNotThrow(function() {
+
+      'should add records without exception': (cdb) => { // eslint-disable-line no-unused-vars
+        assert.doesNotThrow(() => {
           cdb.put('meow', '0xdeadbeef');
           cdb.put('meow', '0xbeefdead');
           cdb.put('abcd', 'test1');
@@ -56,148 +56,149 @@ vows.describe('cdb-test').addBatch({
           cdb.put('mnopqrs', 'test4');
         }, Error);
       },
-      
+
       'should close': {
-        topic: function(cdb) {
+        topic(cdb) {
           cdb.close(this.callback);
         },
-        
-        'without error': function(err) {
+
+        'without error': (err) => {
           assert.equal(err, null);
         },
-        
-        'and have a file with non-zero size': function(err) {
+
+        'and have a file with non-zero size': (err) => { // eslint-disable-line no-unused-vars
           const stat = fs.statSync(tempFile);
           assert.isObject(stat);
           assert.isTrue(stat.size !== 0);
-        }
+        },
       },
-      
+
     },
-  }
+  },
 }).addBatch({
   'A readable cdb': {
     'for a non-existing file': {
-      topic: function() {
-        return new readable(fakeFile);
+      topic() {
+        return new Readable(fakeFile);
       },
-      
+
       'when opened': {
-        topic: function(cdb) {
+        topic(cdb) {
           cdb.open(this.callback);
         },
-        
-        'should error': function(err, cdb) {
+
+        'should error': (err, cdb) => { // eslint-disable-line no-unused-vars
           assert.notEqual(err, null);
-        }
-      }
-    },
-    
-    'for an existing file': {
-      topic: function() {
-        return new readable(tempFile);
+        },
       },
-      
+    },
+
+    'for an existing file': {
+      topic() {
+        return new Readable(tempFile);
+      },
+
       'when opened': {
-        topic: function(cdb) {
+        topic(cdb) {
           cdb.open(this.callback);
         },
-        
-        'should not error': function(err, cdb) {
+
+        'should not error': (err, cdb) => { // eslint-disable-line no-unused-vars
           assert.equal(err, null);
         },
-        
+
         'should find an existing key': {
-          topic: function(cdb) {
+          topic(cdb) {
             cdb.get('meow', this.callback);
           },
-          
-          'without error': function(err, data) {
+
+          'without error': (err, data) => { // eslint-disable-line no-unused-vars
             assert.equal(err, null);
           },
-          
-          'and return the right data': function(err, data) {
+
+          'and return the right data': (err, data) => { // eslint-disable-line no-unused-vars
             assert.equal(data, '0xdeadbeef');
           },
-          
+
           'with a duplicate': {
-            topic: function(_, cdb) {
+            topic(_, cdb) {
               cdb.getNext(this.callback);
             },
-            
-            'that is found via getNext()': function(err, data) {
+
+            'that is found via getNext()': (err, data) => { // eslint-disable-line no-unused-vars
               assert.equal(err, null);
               assert.equal(data, '0xbeefdead');
-            }
-          }
+            },
+          },
         },
-        
+
         'should find an existing key at an offset': {
-          topic: function(cdb) {
+          topic(cdb) {
             cdb.get('abcd', 1, this.callback);
           },
-          
-          'without error': function(err, data) {
+
+          'without error': (err, data) => { // eslint-disable-line no-unused-vars
             assert.equal(err, null);
           },
-          
-          'and return the right data': function(err, data) {
+
+          'and return the right data': (err, data) => { // eslint-disable-line no-unused-vars
             assert.equal(data, 'offset_test');
-          }
+          },
         },
-        
+
         'should not find a missing key': {
-          topic: function(cdb) {
+          topic(cdb) {
             cdb.get('kitty cat', this.callback);
           },
-          
-          'and should not error': function(err, data) {
+
+          'and should not error': (err, data) => { // eslint-disable-line no-unused-vars
             assert.equal(err, null);
           },
-          
-          'and should have a null result': function(err, data) {
+
+          'and should have a null result': (err, data) => { // eslint-disable-line no-unused-vars
             assert.equal(data, null);
-          }
+          },
         },
       },
-      
-      teardown: function(cdb) {
+
+      teardown(cdb) {
         cdb.close();
-      }
-    },
-    
-    'for an open existing file': {
-      topic: function() {
-        (new readable(tempFile)).open(this.callback);
       },
-      
+    },
+
+    'for an open existing file': {
+      topic() {
+        (new Readable(tempFile)).open(this.callback);
+      },
+
       'when closed': {
-        topic: function(cdb) {
+        topic(cdb) {
           cdb.close(this.callback);
         },
-        
-        'should not error': function(err, _) {
+
+        'should not error': (err, _) => { // eslint-disable-line no-unused-vars
           assert.equal(err, null);
-        }
-      }
+        },
+      },
     },
-    
-    teardown: function() {
+
+    teardown() {
       fs.unlinkSync(tempFile);
-    }
-  }
+    },
+  },
 }).addBatch({
   'The CDB package\'s module.exports': {
-    topic: function() {
+    topic() {
+      // eslint-disable-next-line global-require
       return require('../');
     },
-    
-    'should have a writable CDB': function(index) {
+
+    'should have a writable CDB': (index) => {
       assert.isFunction(index.writable);
     },
-    
-    'should have a readable CDB': function(index) {
+
+    'should have a readable CDB': (index) => {
       assert.isFunction(index.readable);
-    }
-  }
+    },
+  },
 }).export(module);
