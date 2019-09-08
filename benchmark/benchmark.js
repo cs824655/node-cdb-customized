@@ -4,11 +4,20 @@ const fs = require('fs');
 const Writable = require('../src/writable-cdb');
 const Readable = require('../src/readable-cdb');
 
-// === Util ===
+const pseudoRandom = (() => {
+  // Lehmer random number generator
+  let seed = 1234567890;
+  return () => {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
+})();
+
 function getRandomInt(min, max) {
-  return Math.floor(Math.random() * (max - min)) + min;
+  return Math.floor(pseudoRandom() * (max - min)) + min;
 }
 
+// === Util ===
 function getRandomString(minLength, maxLength) {
   const length = getRandomInt(minLength, maxLength);
   const stringArray = [];
@@ -19,7 +28,7 @@ function getRandomString(minLength, maxLength) {
   return stringArray.join('');
 }
 
-const CDB_FILE = './benchmark.cdb';
+const CDB_FILE = 'benchmark/benchmark.tmp';
 const COUNT = 50000;
 const records = [];
 const keyCount = {};

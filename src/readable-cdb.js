@@ -60,6 +60,9 @@ Readable.prototype.get = function get(key, offsetParam, callbackParam) {
 
   // console.log(`*********** Readable.get ${key} offset: ${offset}`);
 
+  this.bookmark = null;
+  const self = this;
+  const trueKeyLength = Buffer.byteLength(key);
   const hash = cdbHash(key);
   // eslint-disable-next-line no-bitwise
   const { position, slotCount } = this.header[hash & 255];
@@ -67,8 +70,6 @@ Readable.prototype.get = function get(key, offsetParam, callbackParam) {
 
   // eslint-disable-next-line no-bitwise
   let slot = (hash >>> 8) % slotCount;
-  const trueKeyLength = Buffer.byteLength(key);
-  const self = this;
   let recordPosition;
   let keyLength;
   let dataLength;
@@ -149,6 +150,7 @@ Readable.prototype.get = function get(key, offsetParam, callbackParam) {
   function returnData(err, bytesRead, buffer) {
     // Fill out bookmark information so getNext() will work
     self.bookmark = function bookmark(newCallback) {
+      self.bookmark = null;
       callback = newCallback;
       slot += 1;
       readSlot(slot);
@@ -162,9 +164,10 @@ Readable.prototype.get = function get(key, offsetParam, callbackParam) {
 };
 
 Readable.prototype.getNext = function getNext(callback) {
-  if (this.bookmark) {
-    this.bookmark(callback);
+  if (!this.bookmark) {
+    return callback(null, null);
   }
+  return this.bookmark(callback);
 };
 
 Readable.prototype.close = function close(callback) {
