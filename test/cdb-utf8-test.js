@@ -4,7 +4,7 @@ const fs = require('fs');
 const Writable = require('../src/writable-cdb');
 const Readable = require('../src/readable-cdb');
 
-const tempFile = 'test/tmp';
+const tempFile = 'test/utf8.tmp';
 
 try {
   fs.unlinkSync(tempFile);

@@ -4,8 +4,8 @@ const fs = require('fs');
 const Writable = require('../src/writable-cdb');
 const Readable = require('../src/readable-cdb');
 
-const tempFile = 'test/tmp';
-const fakeFile = 'test/doesntexist';
+const tempFile = 'test/tmp.tmp';
+const fakeFile = 'test/doesntexist.tmp';
 
 try {
   fs.unlinkSync(tempFile);

@@ -4,7 +4,7 @@ const fs = require('fs');
 const Writable = require('../src/writable-cdb');
 const Readable = require('../src/readable-cdb');
 
-const randomFile = 'test/random';
+const randomFile = 'test/random.tmp';
 
 try {
   fs.unlinkSync(randomFile);
