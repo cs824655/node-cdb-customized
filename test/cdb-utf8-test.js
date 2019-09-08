@@ -1,11 +1,11 @@
 'use strict';
 
-var vows     = require('vows'),
-    assert   = require('assert'),
-    fs       = require('fs'),
-    writable = require('../src/writable-cdb'),
-    readable = require('../src/readable-cdb'),
-    tempFile = 'test/tmp';
+const vows = require('vows');
+const assert = require('assert');
+const fs = require('fs');
+const writable = require('../src/writable-cdb');
+const readable = require('../src/readable-cdb');
+const tempFile = 'test/tmp';
 
 try {
     fs.unlinkSync(tempFile);
