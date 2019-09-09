@@ -1,5 +1,8 @@
 const fs = require('fs');
+const doAsync = require('doasync');
 const { cdbHash } = require('./cdb-util');
+
+const asyncFs = doAsync(fs);
 
 const HEADER_SIZE = 2048;
 const TABLE_SIZE = 256;
@@ -13,41 +16,24 @@ class Readable {
     this.bookmark = null;
   }
 
-  open(callback) {
-    const self = this;
+  async open() {
+    this.fd = await asyncFs.open(this.file, 'r');
+    const { buffer } = await asyncFs.read(this.fd, Buffer.from({ length: HEADER_SIZE }), 0, HEADER_SIZE, 0);
 
-    function readHeader(err, fd) {
-      if (err) {
-        return callback(err);
-      }
+    let bufferPosition = 0;
+    for (let i = 0; i < TABLE_SIZE; i += 1) {
+      const position = buffer.readUInt32LE(bufferPosition);
+      const slotCount = buffer.readUInt32LE(bufferPosition + 4);
 
-      self.fd = fd;
-      // eslint-disable-next-line no-use-before-define
-      return fs.read(fd, Buffer.from({ length: HEADER_SIZE }), 0, HEADER_SIZE, 0, parseHeader);
+      this.header[i] = {
+        position,
+        slotCount,
+      };
+
+      bufferPosition += 8;
     }
 
-    function parseHeader(err, bytesRead, buffer) {
-      if (err) {
-        return callback(err);
-      }
-
-      let bufferPosition = 0;
-      for (let i = 0; i < TABLE_SIZE; i += 1) {
-        const position = buffer.readUInt32LE(bufferPosition);
-        const slotCount = buffer.readUInt32LE(bufferPosition + 4);
-
-        self.header[i] = {
-          position,
-          slotCount,
-        };
-
-        bufferPosition += 8;
-      }
-
-      return callback(null, self);
-    }
-
-    fs.open(this.file, 'r', readHeader);
+    return this;
   }
 
   get(key, offsetParam, callbackParam) {

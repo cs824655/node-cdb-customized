@@ -1,6 +1,9 @@
 const events = require('events');
 const fs = require('fs');
+const doAsync = require('doasync');
 const { cdbHash } = require('./cdb-util');
+
+const asyncFs = doAsync(fs);
 
 const HEADER_SIZE = 2048;
 const TABLE_SIZE = 256;
@@ -66,9 +69,8 @@ function getBufferForHashtable(hashtable) {
   return buffer;
 }
 
-class Writable extends events.EventEmitter {
+class Writable {
   constructor(file) {
-    super();
     this.file = file;
     this.filePosition = 0;
 
@@ -79,36 +81,37 @@ class Writable extends events.EventEmitter {
     this.hashtableStream = null;
   }
 
-  open(cb) {
+  async open() {
     // console.log(`*********** opening file for writing: ${this.file} at start 0x${HEADER_SIZE.toString(16)}`);
     const recordStream = fs.createWriteStream(this.file, { start: HEADER_SIZE });
-    const callback = cb || function nothing() {};
-    const self = this;
 
-    function fileOpened() {
-      self.recordStream = recordStream;
-      self.filePosition = HEADER_SIZE;
+    return new Promise((resolve, reject) => {
+      let alreadFinished = false;
 
-      recordStream.on('drain', () => {
-        self.emit('drain');
-      });
+      const onceOpen = () => {
+        if (alreadFinished) {
+          return;
+        }
+        this.recordStream = recordStream;
+        this.filePosition = HEADER_SIZE;
 
-      // eslint-disable-next-line no-use-before-define
-      recordStream.removeListener('error', error);
+        recordStream.removeListener('error', onceError);
+        alreadFinished = true;
+        resolve(this);
+      };
 
-      self.emit('open');
-      callback(null, self);
-    }
+      const onceError = (err) => {
+        if (alreadFinished) {
+          return;
+        }
+        recordStream.removeListener('open', onceOpen);
+        alreadFinished = true;
+        reject(err);
+      };
 
-    function error(err) {
-      recordStream.removeListener('open', fileOpened);
-
-      self.emit('error', err);
-      callback(err);
-    }
-
-    recordStream.once('open', fileOpened);
-    recordStream.once('error', error);
+      recordStream.once('error', onceError);
+      recordStream.once('open', onceOpen);
+    });
   }
 
   put(key, data, callback) {
@@ -196,12 +199,12 @@ class Writable extends events.EventEmitter {
     }
 
     function finished() {
-      self.emit('finish');
+      // self.emit('finish');
       callback();
     }
 
     function error(err) {
-      self.emit('error', err);
+      // self.emit('error', err);
       callback(err);
     }
   }

@@ -1,6 +1,7 @@
 const vows = require('vows');
 const assert = require('assert');
 const fs = require('fs');
+const toCallback = require('./to-callback');
 const Writable = require('../src/writable-cdb');
 const Readable = require('../src/readable-cdb');
 
@@ -66,7 +67,7 @@ const randomRecords = generateRandomRecords(recordCount);
 vows.describe('cdb-random-test').addBatch({
   'An opened writable cdb': {
     topic() {
-      (new Writable(randomFile)).open(this.callback);
+      toCallback((new Writable(randomFile)).open(), this.callback);
     },
 
     'should not error': (err, cdb) => { // eslint-disable-line no-unused-vars
@@ -94,7 +95,7 @@ vows.describe('cdb-random-test').addBatch({
 }).addBatch({
   'An opened readable cdb': {
     topic() {
-      (new Readable(randomFile)).open(this.callback);
+      toCallback((new Readable(randomFile)).open(), this.callback);
     },
 
     'should not error': (err, cdb) => { // eslint-disable-line no-unused-vars

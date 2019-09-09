@@ -1,6 +1,7 @@
 const vows = require('vows');
 const assert = require('assert');
 const fs = require('fs');
+const toCallback = require('./to-callback');
 const Writable = require('../src/writable-cdb');
 const Readable = require('../src/readable-cdb');
 
@@ -34,7 +35,7 @@ vows.describe('cdb-test').addBatch({
 
     'when opened': {
       topic(cdb) {
-        cdb.open(this.callback);
+        toCallback(cdb.open(), this.callback);
       },
 
       'should not error': (err, cdb) => { // eslint-disable-line no-unused-vars
@@ -84,7 +85,7 @@ vows.describe('cdb-test').addBatch({
 
       'when opened': {
         topic(cdb) {
-          cdb.open(this.callback);
+          toCallback(cdb.open(), this.callback);
         },
 
         'should error': (err, cdb) => { // eslint-disable-line no-unused-vars
@@ -100,7 +101,7 @@ vows.describe('cdb-test').addBatch({
 
       'when opened': {
         topic(cdb) {
-          cdb.open(this.callback);
+          toCallback(cdb.open(), this.callback);
         },
 
         'should not error': (err, cdb) => { // eslint-disable-line no-unused-vars
@@ -168,7 +169,7 @@ vows.describe('cdb-test').addBatch({
 
     'for an open existing file': {
       topic() {
-        (new Readable(tempFile)).open(this.callback);
+        toCallback((new Readable(tempFile)).open(), this.callback);
       },
 
       'when closed': {

@@ -29,5 +29,8 @@
   "homepage": "https://github.com/ozomer/node-cdb-64",
   "jshintConfig": {
     "node": true
+  },
+  "dependencies": {
+    "doasync": "2.0.1"
   }
 }

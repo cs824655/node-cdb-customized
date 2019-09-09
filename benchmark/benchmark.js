@@ -1,5 +1,6 @@
 // === Setup ===
 const fs = require('fs');
+const { toCallback } = require('../test/to-callback');
 
 const Writable = require('../src/writable-cdb');
 const Readable = require('../src/readable-cdb');
@@ -123,7 +124,7 @@ const writeBenchmark = new Benchmark({
 
   setup(callback) {
     writeCDB = new Writable(CDB_FILE);
-    writeCDB.open(callback);
+    toCallback(writeCDB.open(), callback);
   },
 
   fn(iteration, callback) {
@@ -142,7 +143,7 @@ const readBenchmark = new Benchmark({
 
   setup(callback) {
     readCDB = new Readable(CDB_FILE);
-    readCDB.open(callback);
+    toCallback(readCDB.open(), callback);
   },
 
   fn(iteration, callback) {

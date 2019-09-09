@@ -4,6 +4,7 @@
     "Lehmer",
     "Zomer",
     "cdb's",
+    "doasync",
     "doesntexist",
     "efgh",
     "gitignore",
@@ -11,7 +12,9 @@
     "hashtables",
     "ijkl",
     "mnopqrs",
-    "multiline"
+    "multiline",
+    "promisified",
+    "promisify"
   ],
   "[javascript]": {
     "editor.tabSize": 2,

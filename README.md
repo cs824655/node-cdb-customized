@@ -24,11 +24,10 @@ Writable cdb:
 var writable = require('constant-db').writable;
 
 var writer = new writable('./cdbfile');
-writer.open(function cdbOpened(err) {
-    writer.put('meow', 'hello world');
-    writer.close(function cdbClosed(err) {
-        console.log('hooray!');
-    });
+await writer.open();
+writer.put('meow', 'hello world');
+writer.close(function cdbClosed(err) {
+    console.log('hooray!');
 });
 ```
 
@@ -37,13 +36,14 @@ Readable cdb:
 var readable = require('constant-db').readable;
 
 var reader = new readable('./cdbfile');
-reader.open(function cdbOpened(err) {
-    reader.get('meow', function gotRecord(err, data) {
-        console.log(data); // results in 'hello world!'
-        
-        reader.close(function cdbClosed(err) {
-            console.log('awesome!');
-        });
+
+await reader.open();
+
+reader.get('meow', function gotRecord(err, data) {
+    console.log(data); // results in 'hello world!'
+    
+    reader.close(function cdbClosed(err) {
+        console.log('awesome!');
     });
 });
 ```

@@ -1,6 +1,7 @@
 const vows = require('vows');
 const assert = require('assert');
 const fs = require('fs');
+const toCallback = require('./to-callback');
 const Writable = require('../src/writable-cdb');
 const Readable = require('../src/readable-cdb');
 
@@ -19,7 +20,7 @@ vows.describe('cdb-utf8-test').addBatch({
 
     'when opened': {
       topic(cdb) {
-        cdb.open(this.callback);
+        toCallback(cdb.open(), this.callback);
       },
 
       'should write UTF8 characters': {
@@ -41,7 +42,7 @@ vows.describe('cdb-utf8-test').addBatch({
 }).addBatch({
   'A readable cdb should find that': {
     topic() {
-      (new Readable(tempFile)).open(this.callback);
+      toCallback((new Readable(tempFile)).open(), this.callback);
     },
 
     é: {

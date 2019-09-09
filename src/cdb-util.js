@@ -1,4 +1,3 @@
-
 exports.cdbHash = function hashKey(key) {
   const { length } = key;
   let hash = 5381;
