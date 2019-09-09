@@ -29,8 +29,14 @@ vows.describe('cdb-test').addBatch({
       assert.isFunction(cdb.put);
     },
 
-    'should throw an error if not opened': (cdb) => {
-      assert.throws(cdb.put, Error);
+    'if written but not opened': {
+      topic(cdb) {
+        toCallback(cdb.put('a', 'b'), this.callback);
+      },
+
+      'should error': (err, putResult) => { // eslint-disable-line no-unused-vars
+        assert.notEqual(err, null);
+      },
     },
 
     'when opened': {
@@ -119,7 +125,6 @@ vows.describe('cdb-test').addBatch({
             },
 
             'without error': (err, data) => { // eslint-disable-line no-unused-vars
-              console.log(err);
               assert.equal(err, null);
             },
 

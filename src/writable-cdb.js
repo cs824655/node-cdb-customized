@@ -56,8 +56,23 @@ class Writable {
     this.header = new Array(TABLE_SIZE);
     this.hashtables = new Array(TABLE_SIZE);
 
-    this.recordStream = null;
     this.hashtableStream = null;
+    this.recordStream = null;
+    this.recordStreamError = null;
+    this._recordStreamErrorSaver = (err) => {
+      this.recordStreamError = err;
+      const waiters = this._recordStreamDrainWaiters;
+      this._recordStreamDrainWaiters = new Set();
+      waiters.forEach(({ reject }) => reject(err));
+    };
+    this._recordStreamDrainWaiters = new Set();
+    this._recordStreamDrainCaller = () => {
+      // listeners should be safe functions
+      // for safety
+      const waiters = this._recordStreamDrainWaiters;
+      this._recordStreamDrainWaiters = new Set();
+      waiters.forEach(({ resolve }) => resolve());
+    };
   }
 
   async open() {
@@ -73,7 +88,8 @@ class Writable {
         }
         this.recordStream = recordStream;
         this.filePosition = HEADER_SIZE;
-
+        recordStream.once('error', this._recordStreamErrorSaver);
+        recordStream.on('drain', this._recordStreamDrainCaller);
         recordStream.removeListener('error', onceError);
         alreadyFinished = true;
         resolve(this);
@@ -93,7 +109,10 @@ class Writable {
     });
   }
 
-  put(key, data, callback) {
+  async put(key, data) {
+    if (this.recordStreamError) {
+      throw this.recordStreamError; // if set write operations are no longer permitted
+    }
     const keyLength = Buffer.byteLength(key);
     const dataLength = Buffer.byteLength(data);
     const record = Buffer.from({ length: 8 + keyLength + dataLength });
@@ -107,7 +126,11 @@ class Writable {
     record.write(data, 8 + keyLength);
 
     // console.log(`*********** writing key ${key} data ${data} record ${record.toString('hex')} to file position 0x${this.filePosition.toString(16)}`);
-    const okayToWrite = this.recordStream.write(record, callback);
+    const drainPromise = this.recordStream.write(record) ? null : new Promise((resolve, reject) => {
+      this._recordStreamDrainWaiters.add({ resolve, reject });
+      // We don't wait for the entire flush
+    });
+
 
     let hashtable = this.hashtables[hashtableIndex];
     if (!hashtable) {
@@ -119,7 +142,12 @@ class Writable {
 
     this.filePosition += record.length;
 
-    return okayToWrite;
+    if (drainPromise) {
+      await drainPromise;
+      if (this.recordStreamError) {
+        throw this.recordStreamError; // check if was an error during the writing
+      }
+    }
   }
 
   async close() {
@@ -141,13 +169,17 @@ class Writable {
         this.recordStream.removeListener('finish', onFinish);
         reject(err);
       };
+      if (this.recordStreamError) {
+        reject(this.recordStreamError); // check if was an error during the writing
+        return;
+      }
+      // Let's replace the error handler
       this.recordStream.once('finish', onFinish);
       this.recordStream.once('error', onError);
+      this.recordStream.removeListener('error', this._recordStreamErrorSaver);
       this.recordStream.end();
     });
-
-    // console.log(`*********** opening file for hashtable writing: ${this.file} at start 0x${self.filePosition.toString(16)}`);
-    this.hashtableStream = fs.createWriteStream(this.file, { start: this.filePosition, flags: 'r+' });
+    this.recordStream.removeListener('drain', this._recordStreamDrainCaller);
 
     await new Promise((resolve, reject) => {
       let alreadyFinished = false;
@@ -196,6 +228,9 @@ class Writable {
         this.hashtableStream.removeListener('finish', onFinish);
         reject(err);
       };
+      // hashtableStream could be local but we save it on this for debugging
+      // console.log(`*********** opening file for hashtable writing: ${this.file} at start 0x${self.filePosition.toString(16)}`);
+      this.hashtableStream = fs.createWriteStream(this.file, { start: this.filePosition, flags: 'r+' });
       this.hashtableStream.once('open', onOpen);
       this.hashtableStream.once('error', onError);
     });
