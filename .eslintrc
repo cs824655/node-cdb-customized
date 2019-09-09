@@ -69,9 +69,15 @@
     "node": true,
     "mocha": true
   },
+  "parser": "babel-eslint",
   "parserOptions": {
     "ecmaVersion": 9,
-    "ecmaFeatures": {}
+    "ecmaFeatures": {
+      "impliedStrict": true
+    }
   },
-  "extends": ["airbnb-base"]
+  "extends": ["airbnb-base"],
+  "globals": {
+    "BigInt": "readonly"
+  }
 }

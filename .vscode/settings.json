@@ -4,6 +4,7 @@
     "Lehmer",
     "Zomer",
     "cdb's",
+    "cdbfile",
     "doasync",
     "doesntexist",
     "efgh",
@@ -13,8 +14,11 @@
     "ijkl",
     "mnopqrs",
     "multiline",
+    "parens",
     "promisified",
-    "promisify"
+    "promisify",
+    "readonly",
+    "subtables"
   ],
   "[javascript]": {
     "editor.tabSize": 2,

@@ -129,7 +129,7 @@ const writeBenchmark = new Benchmark({
 
   fn(iteration, callback) {
     const record = records[iteration];
-    writeCDB.put(record.key, record.data, callback);
+    toCallback(writeCDB.put(record.key, record.data), callback);
   },
 
   teardown(callback) {

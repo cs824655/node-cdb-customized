@@ -219,11 +219,11 @@ vows.describe('cdb-test').addBatch({
     },
 
     'should have a writable CDB': (index) => {
-      assert.isFunction(index.writable);
+      assert.isFunction(index.Writable);
     },
 
     'should have a readable CDB': (index) => {
-      assert.isFunction(index.readable);
+      assert.isFunction(index.Readable);
     },
   },
 }).export(module);

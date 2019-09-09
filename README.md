@@ -16,6 +16,8 @@ Key-Length and Data-Length remain 4 bytes (32 bits) - this allows only 4GB for e
 * Writable is not an EventEmitter
 * Using `getIterator()` instead of `getNext()`
 * Using 64 bits for pointers and hash-values
+* Writable and Readable are classes and therefore begin with a capital letter
+* Converting keys to buffers - not hashing utf8 strings directly (with `charCodeAt()`)
 
 ## Changes from v1.0.0
 * Renamed `getRecord()` to `get()`
@@ -89,4 +91,4 @@ Writes a record to the cdb.
 Finalizes the cdb and closes the file. Calling `close()` is necessary to write out the header and subtables required for the cdb!
 
 ## Benchmark
-`node benchmarks/cdb-random-benchmark.js`
+`node benchmarks/benchmark.js`
