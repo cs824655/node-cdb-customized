@@ -43,14 +43,53 @@ for (let recordIndex = 0; recordIndex < COUNT; recordIndex += 1) {
   keyCount[key] = offset + 1;
 }
 
-// === Benchmark class ===
-function Benchmark(options) {
-  this.name = options.name;
-  this.count = options.count;
-  this.setup = options.setup;
-  this.fn = options.fn;
-  this.teardown = options.teardown;
-  this.onComplete = options.onComplete;
+class Benchmark {
+  constructor(options) {
+    this.name = options.name;
+    this.count = options.count;
+    this.setup = options.setup;
+    this.fn = options.fn;
+    this.teardown = options.teardown;
+    this.onComplete = options.onComplete;
+  }
+
+  run() {
+    const {
+      name, count, fn, teardown, onComplete,
+    } = this;
+    let i = 0;
+    let startTime; let endTime; let duration; let seconds; let perSecond;
+
+    function start() {
+      startTime = Date.now();
+
+      // eslint-disable-next-line no-use-before-define
+      loop();
+    }
+
+    function loop() {
+      if (i < count) {
+        fn(i, loop);
+        i += 1;
+      } else {
+        // eslint-disable-next-line no-use-before-define
+        end();
+      }
+    }
+
+    function end() {
+      endTime = Date.now();
+      duration = endTime - startTime;
+      seconds = duration / 1000;
+      perSecond = Math.floor((count / seconds) * 100) / 100;
+
+      console.log(`${name} x${count} in ${seconds} seconds (${perSecond} per second).`);
+
+      teardown(onComplete);
+    }
+
+    this.setup(start);
+  }
 }
 
 // Process an array of benchmarks sequentially
@@ -72,44 +111,6 @@ Benchmark.process = function process(benchmarkArray, callback) {
   }
 
   runBenchmark();
-};
-
-Benchmark.prototype.run = function run() {
-  const {
-    name, count, fn, teardown, onComplete,
-  } = this;
-  let i = 0;
-  let startTime; let endTime; let duration; let seconds; let perSecond;
-
-  function start() {
-    startTime = Date.now();
-
-    // eslint-disable-next-line no-use-before-define
-    loop();
-  }
-
-  function loop() {
-    if (i < count) {
-      fn(i, loop);
-      i += 1;
-    } else {
-      // eslint-disable-next-line no-use-before-define
-      end();
-    }
-  }
-
-  function end() {
-    endTime = Date.now();
-    duration = endTime - startTime;
-    seconds = duration / 1000;
-    perSecond = Math.floor((count / seconds) * 100) / 100;
-
-    console.log(`${name} x${count} in ${seconds} seconds (${perSecond} per second).`);
-
-    teardown(onComplete);
-  }
-
-  this.setup(start);
 };
 
 let writeCDB;
