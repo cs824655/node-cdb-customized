@@ -30,7 +30,7 @@ vows.describe('cdb-utf8-test').addBatch({
           cdb.put('key', 'ᚠᛇᚻ');
           cdb.put('대한민국', '안성기');
 
-          cdb.close(this.callback);
+          toCallback(cdb.close(), this.callback);
         },
 
         'and close successfully': (err) => {

@@ -1,4 +1,3 @@
-const events = require('events');
 const fs = require('fs');
 const doAsync = require('doasync');
 const { cdbHash } = require('./cdb-util');
@@ -7,26 +6,6 @@ const asyncFs = doAsync(fs);
 
 const HEADER_SIZE = 2048;
 const TABLE_SIZE = 256;
-
-/*
-* Returns an allocated buffer containing the binary representation of a CDB
-* header. The header contains 255 (count, position) pairs representing the
-* number of slots and position of the hashtables.
-*/
-function getBufferForHeader(headerTable) {
-  const buffer = Buffer.from({ length: HEADER_SIZE });
-  let bufferPosition = 0;
-
-  for (let i = 0; i < TABLE_SIZE; i += 1) {
-    const { position, slots } = headerTable[i];
-
-    buffer.writeUInt32LE(position, bufferPosition);
-    buffer.writeUInt32LE(slots, bufferPosition + 4); // 4 bytes per int
-    bufferPosition += 8;
-  }
-
-  return buffer;
-}
 
 // === Helper functions ===
 
@@ -86,26 +65,26 @@ class Writable {
     const recordStream = fs.createWriteStream(this.file, { start: HEADER_SIZE });
 
     return new Promise((resolve, reject) => {
-      let alreadFinished = false;
+      let alreadyFinished = false;
 
       const onceOpen = () => {
-        if (alreadFinished) {
+        if (alreadyFinished) {
           return;
         }
         this.recordStream = recordStream;
         this.filePosition = HEADER_SIZE;
 
         recordStream.removeListener('error', onceError);
-        alreadFinished = true;
+        alreadyFinished = true;
         resolve(this);
       };
 
       const onceError = (err) => {
-        if (alreadFinished) {
+        if (alreadyFinished) {
           return;
         }
         recordStream.removeListener('open', onceOpen);
-        alreadFinished = true;
+        alreadyFinished = true;
         reject(err);
       };
 
@@ -143,70 +122,101 @@ class Writable {
     return okayToWrite;
   }
 
-  close(cb) {
-    const self = this;
-    const callback = cb || function nothing() {};
+  async close() {
+    await new Promise((resolve, reject) => {
+      let alreadyFinished = false;
+      const onFinish = () => {
+        if (alreadyFinished) {
+          return;
+        }
+        alreadyFinished = true;
+        this.recordStream.removeListener('error', onError);
+        resolve();
+      };
+      const onError = (err) => {
+        if (alreadyFinished) {
+          return;
+        }
+        alreadyFinished = true;
+        this.recordStream.removeListener('finish', onFinish);
+        reject(err);
+      };
+      this.recordStream.once('finish', onFinish);
+      this.recordStream.once('error', onError);
+      this.recordStream.end();
+    });
 
-    // eslint-disable-next-line no-use-before-define
-    this.recordStream.on('finish', openStreamForHashtable);
-    this.recordStream.end();
+    // console.log(`*********** opening file for hashtable writing: ${this.file} at start 0x${self.filePosition.toString(16)}`);
+    this.hashtableStream = fs.createWriteStream(this.file, { start: this.filePosition, flags: 'r+' });
 
-    function openStreamForHashtable() {
-      // console.log(`*********** opening file for hashtable writing: ${this.file} at start 0x${self.filePosition.toString(16)}`);
-      self.hashtableStream = fs.createWriteStream(self.file, { start: self.filePosition, flags: 'r+' });
-
-      // eslint-disable-next-line no-use-before-define
-      self.hashtableStream.once('open', writeHashtables);
-      // eslint-disable-next-line no-use-before-define
-      self.hashtableStream.once('error', error);
-    }
-
-    function writeHashtables() {
-      const { length } = self.hashtables;
-
-      for (let i = 0; i < length; i += 1) {
-        const hashtable = self.hashtables[i] || [];
-        // eslint-disable-next-line no-use-before-define
-        const buffer = getBufferForHashtable(hashtable);
-
-        if (buffer.length > 0) {
-          // console.log(`*********** writing the buffer at 0x${self.filePosition.toString(16)}`);
-          self.hashtableStream.write(buffer);
+    await new Promise((resolve, reject) => {
+      let alreadyFinished = false;
+      const onOpen = () => {
+        if (alreadyFinished) {
+          return;
         }
 
-        self.header[i] = {
-          position: self.filePosition,
-          slots: hashtable.length * 2,
-        };
+        const { length } = this.hashtables;
+        for (let i = 0; i < length; i += 1) {
+          const hashtable = this.hashtables[i] || [];
+          const buffer = getBufferForHashtable(hashtable);
 
-        self.filePosition += buffer.length;
+          if (buffer.length > 0) {
+            // console.log(`*********** writing the buffer at 0x${this.filePosition.toString(16)}`);
+            this.hashtableStream.write(buffer);
+          }
 
-        // free the hashtable
-        self.hashtables[i] = null;
-      }
+          this.header[i] = {
+            position: this.filePosition,
+            slots: hashtable.length * 2,
+          };
 
-      // eslint-disable-next-line no-use-before-define
-      self.hashtableStream.on('finish', writeHeader);
-      self.hashtableStream.end();
+          this.filePosition += buffer.length;
+
+          // free the hashtable
+          this.hashtables[i] = null;
+        }
+        this.hashtableStream.once('finish', onFinish);
+        this.hashtableStream.end();
+      };
+      const onFinish = () => {
+        if (alreadyFinished) {
+          return;
+        }
+        alreadyFinished = true;
+        this.hashtableStream.removeListener('error', onError);
+        resolve();
+      };
+      const onError = (err) => {
+        if (alreadyFinished) {
+          return;
+        }
+        alreadyFinished = true;
+        this.hashtableStream.removeListener('open', onOpen);
+        this.hashtableStream.removeListener('finish', onFinish);
+        reject(err);
+      };
+      this.hashtableStream.once('open', onOpen);
+      this.hashtableStream.once('error', onError);
+    });
+
+    /*
+    * Allocated buffer containing the binary representation of a CDB
+    * header. The header contains 255 (count, position) pairs representing the
+    * number of slots and position of the hashtables.
+    */
+    const buffer = Buffer.from({ length: HEADER_SIZE });
+    let bufferPosition = 0;
+
+    for (let i = 0; i < TABLE_SIZE; i += 1) {
+      const { position, slots } = this.header[i];
+
+      buffer.writeUInt32LE(position, bufferPosition);
+      buffer.writeUInt32LE(slots, bufferPosition + 4); // 4 bytes per int
+      bufferPosition += 8;
     }
 
-    function writeHeader() {
-      // eslint-disable-next-line no-use-before-define
-      const buffer = getBufferForHeader(self.header);
-
-      // eslint-disable-next-line no-use-before-define
-      fs.writeFile(self.file, buffer, { flag: 'r+' }, finished);
-    }
-
-    function finished() {
-      // self.emit('finish');
-      callback();
-    }
-
-    function error(err) {
-      // self.emit('error', err);
-      callback(err);
-    }
+    await asyncFs.writeFile(this.file, buffer, { flag: 'r+' });
   }
 }
 

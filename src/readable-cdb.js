@@ -105,8 +105,8 @@ class Readable {
     return (await this.getIterator(key, offset).next()).value;
   }
 
-  close(callback) {
-    fs.close(this.fd, callback || (() => {}));
+  async close() {
+    await asyncFs.close(this.fd);
   }
 }
 

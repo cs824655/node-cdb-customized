@@ -1,6 +1,6 @@
 // === Setup ===
 const fs = require('fs');
-const { toCallback } = require('../test/to-callback');
+const toCallback = require('../test/to-callback');
 
 const Writable = require('../src/writable-cdb');
 const Readable = require('../src/readable-cdb');
@@ -133,7 +133,7 @@ const writeBenchmark = new Benchmark({
   },
 
   teardown(callback) {
-    writeCDB.close(callback);
+    toCallback(writeCDB.close(), callback);
   },
 });
 
@@ -152,7 +152,7 @@ const readBenchmark = new Benchmark({
   },
 
   teardown(callback) {
-    readCDB.close(callback);
+    toCallback(readCDB.close(), callback);
   },
 });
 

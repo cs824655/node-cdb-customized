@@ -60,7 +60,7 @@ vows.describe('cdb-test').addBatch({
 
       'should close': {
         topic(cdb) {
-          cdb.close(this.callback);
+          toCallback(cdb.close(), this.callback);
         },
 
         'without error': (err) => {
@@ -182,7 +182,7 @@ vows.describe('cdb-test').addBatch({
       },
 
       teardown(cdb) {
-        cdb.close();
+        toCallback(cdb.close(), this.callback);
       },
     },
 
@@ -193,7 +193,7 @@ vows.describe('cdb-test').addBatch({
 
       'when closed': {
         topic(cdb) {
-          cdb.close(this.callback);
+          toCallback(cdb.close(), this.callback);
         },
 
         'should not error': (err, _) => { // eslint-disable-line no-unused-vars

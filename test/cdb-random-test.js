@@ -84,7 +84,7 @@ vows.describe('cdb-random-test').addBatch({
 
     'should close': {
       topic(cdb) {
-        cdb.close(this.callback);
+        toCallback(cdb.close(), this.callback);
       },
 
       'without error': (err) => {
@@ -135,8 +135,10 @@ vows.describe('cdb-random-test').addBatch({
     },
 
     teardown(cdb) {
-      cdb.close();
-      fs.unlinkSync(randomFile);
+      toCallback((async () => {
+        await cdb.close();
+        fs.unlinkSync(randomFile);
+      })(), this.callback);
     },
   },
 }).export(module);

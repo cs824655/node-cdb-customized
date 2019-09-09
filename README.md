@@ -32,9 +32,8 @@ var writable = require('constant-db').writable;
 var writer = new writable('./cdbfile');
 await writer.open();
 writer.put('meow', 'hello world');
-writer.close(function cdbClosed(err) {
-    console.log('hooray!');
-});
+await writer.close();
+console.log('hooray!');
 ```
 
 Readable cdb:
@@ -48,9 +47,8 @@ await reader.open();
 const data = await reader.get('meow');
 console.log(data); // results in 'hello world!'
 
-reader.close(function cdbClosed(err) {
-    console.log('awesome!');
-});
+await reader.close();
+console.log('awesome!');
 ```
 
 ## Documentation
