@@ -47,7 +47,7 @@ vows.describe('cdb-utf8-test').addBatch({
 
     é: {
       topic(cdb) {
-        cdb.get('é', this.callback);
+        toCallback(cdb.get('é'), this.callback);
       },
 
       exists(err, data) {
@@ -62,7 +62,7 @@ vows.describe('cdb-utf8-test').addBatch({
 
     '€': {
       topic(cdb) {
-        cdb.get('€', this.callback);
+        toCallback(cdb.get('€'), this.callback);
       },
 
       exists(err, data) {
@@ -77,7 +77,7 @@ vows.describe('cdb-utf8-test').addBatch({
 
     key: {
       topic(cdb) {
-        cdb.get('key', this.callback);
+        toCallback(cdb.get('key'), this.callback);
       },
 
       exists(err, data) {
@@ -92,7 +92,7 @@ vows.describe('cdb-utf8-test').addBatch({
 
     대한민국: {
       topic(cdb) {
-        cdb.get('대한민국', this.callback);
+        toCallback(cdb.get('대한민국'), this.callback);
       },
 
       exists(err, data) {

@@ -108,34 +108,53 @@ vows.describe('cdb-test').addBatch({
           assert.equal(err, null);
         },
 
-        'should find an existing key': {
+        'should return an iterator': {
           topic(cdb) {
-            cdb.get('meow', this.callback);
+            return cdb.getIterator('meow');
           },
 
-          'without error': (err, data) => { // eslint-disable-line no-unused-vars
-            assert.equal(err, null);
-          },
-
-          'and return the right data': (err, data) => { // eslint-disable-line no-unused-vars
-            assert.equal(data, '0xdeadbeef');
-          },
-
-          'with a duplicate': {
-            topic(_, cdb) {
-              cdb.getNext(this.callback);
+          'and return the right first element': {
+            topic(iterator) {
+              toCallback(iterator.next(), this.callback);
             },
 
-            'that is found via getNext()': (err, data) => { // eslint-disable-line no-unused-vars
+            'without error': (err, data) => { // eslint-disable-line no-unused-vars
+              console.log(err);
               assert.equal(err, null);
-              assert.equal(data, '0xbeefdead');
+            },
+
+            'with the right data': (err, data) => {
+              assert.equal(data.value, '0xdeadbeef');
+            },
+
+            'with a duplicate': {
+              topic(data, iterator) {
+                toCallback(iterator.next(), this.callback);
+              },
+
+              'that is found via iterator.next()': (err, data) => { // eslint-disable-line no-unused-vars
+                assert.equal(err, null);
+                assert.equal(data.value, '0xbeefdead');
+              },
+
+              'and the next iteration': {
+                topic(secondData, firstData, iterator) {
+                  toCallback(iterator.next(), this.callback);
+                },
+
+                'is empty': (err, data) => {
+                  assert.equal(err, null);
+                  assert.equal(data.value, null);
+                  assert.isTrue(data.done);
+                },
+              },
             },
           },
         },
 
         'should find an existing key at an offset': {
           topic(cdb) {
-            cdb.get('abcd', 1, this.callback);
+            toCallback(cdb.get('abcd', 1), this.callback);
           },
 
           'without error': (err, data) => { // eslint-disable-line no-unused-vars
@@ -149,7 +168,7 @@ vows.describe('cdb-test').addBatch({
 
         'should not find a missing key': {
           topic(cdb) {
-            cdb.get('kitty cat', this.callback);
+            toCallback(cdb.get('kitty cat'), this.callback);
           },
 
           'and should not error': (err, data) => { // eslint-disable-line no-unused-vars

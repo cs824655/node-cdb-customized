@@ -111,7 +111,7 @@ vows.describe('cdb-random-test').addBatch({
 
         function checkRecord(expected) {
           return (err, data) => {
-            if (err || data.toString() !== expected) {
+            if (err || !data || data.toString() !== expected) {
               notFound += 1;
             } else {
               found += 1;
@@ -124,13 +124,13 @@ vows.describe('cdb-random-test').addBatch({
         }
 
         iterateOverRecords(randomRecords, (key, offset, data) => {
-          cdb.get(key, offset, checkRecord(data));
+          toCallback(cdb.get(key, offset), checkRecord(data));
         });
       },
 
       'should find all of them': (notFound, found) => {
-        assert.equal(notFound, null);
         assert.equal(found, recordCount);
+        assert.equal(notFound, null);
       },
     },
 

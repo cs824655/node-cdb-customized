@@ -11,6 +11,12 @@ Key-Length and Data-Length remain 4 bytes (32 bits) - this allows only 4GB for e
 ## Installation
 `npm install constant-db64`
 
+## Changes from original v2.0.0
+* Replacing error-first-callbacks with promises using async-await
+* Writable is not an EventEmitter
+* Using `getIterator()` instead of `getNext()`
+* Using 64 bits for pointers and hash-values
+
 ## Changes from v1.0.0
 * Renamed `getRecord()` to `get()`
 * Renamed `putRecord()` to `put()`
@@ -39,12 +45,11 @@ var reader = new readable('./cdbfile');
 
 await reader.open();
 
-reader.get('meow', function gotRecord(err, data) {
-    console.log(data); // results in 'hello world!'
-    
-    reader.close(function cdbClosed(err) {
-        console.log('awesome!');
-    });
+const data = await reader.get('meow');
+console.log(data); // results in 'hello world!'
+
+reader.close(function cdbClosed(err) {
+    console.log('awesome!');
 });
 ```
 
@@ -53,17 +58,17 @@ reader.get('meow', function gotRecord(err, data) {
 To create a new readable instance:
 `new require('constant-db').readable(file);`
 
-`open(callback(err, cdb))`
+`open()`
 
 Opens the file for reading, and immediately caches the header table for the cdb (2048 bytes).
 
-`get(key, [offset], callback(err, data))`
+`get(key, [offset])`
 
 Attempts to find the specified key, and calls the callback with an error (if not found) or the data for that key (if found). If an offset is specified, the cdb will return data for the *nth* record matching that key.
 
-`getNext(callback(err, data))`
+`getIterator()`
 
-Continues the previous `get()` call, finding the next record under the key `get()` was called with. This should be slightly faster than calling `get()` with an offset.
+Returns an async iterator (which also implements `AsyncIterable`), for finding multiple values for the same key. This should be slightly faster than calling `get()` with an offset.
 
 `close(callback(err, cdb))`
 

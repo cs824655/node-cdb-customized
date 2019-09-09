@@ -148,7 +148,7 @@ const readBenchmark = new Benchmark({
 
   fn(iteration, callback) {
     const record = records[iteration];
-    readCDB.get(record.key, record.offset, callback);
+    toCallback(readCDB.get(record.key, record.offset), callback);
   },
 
   teardown(callback) {

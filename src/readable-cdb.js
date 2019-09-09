@@ -13,7 +13,6 @@ class Readable {
     this.header = new Array(TABLE_SIZE);
 
     this.fd = null;
-    this.bookmark = null;
   }
 
   async open() {
@@ -36,125 +35,74 @@ class Readable {
     return this;
   }
 
-  get(key, offsetParam, callbackParam) {
-    let offset = offsetParam;
-    let callback = callbackParam;
+  async* getIterator(key, offsetParam = 0) {
+    // console.log(`*********** Readable.get ${key} offset: ${offsetParam}`);
 
-    if (typeof (offset) === 'function') {
-      callback = offset;
-      offset = 0;
-    }
-
-    // console.log(`*********** Readable.get ${key} offset: ${offset}`);
-
-    this.bookmark = null;
-    const self = this;
     const trueKeyLength = Buffer.byteLength(key);
     const hash = cdbHash(key);
     // eslint-disable-next-line no-bitwise
     const { position, slotCount } = this.header[hash & 255];
     // console.log(`*********** position ${position} slotCount: ${slotCount}`);
 
-    // eslint-disable-next-line no-bitwise
-    let slot = (hash >>> 8) % slotCount;
-    let recordPosition;
-    let keyLength;
-    let dataLength;
+    let offset = offsetParam;
 
     if (slotCount === 0) {
-      // console.log('*********** did not find data because slotCount is 0');
-      return callback(null, null);
+      return null;
     }
 
-    function readSlot(currentSlot) {
-      const hashPosition = position + ((currentSlot % slotCount) * 8);
-      // console.log(`*********** reading slot ${currentSlot} at ${hashPosition}`);
+    // eslint-disable-next-line no-bitwise
+    const initialSlot = (hash >>> 8) % slotCount;
 
-      // eslint-disable-next-line no-use-before-define
-      fs.read(self.fd, Buffer.from({ length: 8 }), 0, 8, hashPosition, checkHash);
-    }
+    for (let slotIndex = 0; slotIndex < slotCount; slotIndex += 1) {
+      const hashPosition = position + (((initialSlot + slotIndex) % slotCount) * 8);
+      // console.log(`*********** reading slot ${slotIndex} at ${hashPosition}`);
 
-    function checkHash(err, bytesRead, buffer) {
-      if (err) {
-        return callback(err);
-      }
+      // eslint-disable-next-line no-await-in-loop
+      const { buffer: slotBuffer } = await asyncFs.read(this.fd, Buffer.from({ length: 8 }), 0, 8, hashPosition);
 
-      const recordHash = buffer.readUInt32LE(0);
-      recordPosition = buffer.readUInt32LE(4);
+      const recordHash = slotBuffer.readUInt32LE(0);
+      const recordPosition = slotBuffer.readUInt32LE(4);
       // console.log(`*********** recordHash 0x${recordHash.toString(16)} recordPosition 0x${recordPosition.toString(16)}`);
 
+      if (recordPosition === 0) {
+        // console.log(`*********** did not find data because an empty record was reached ${recordPosition} ${recordHash}`);
+        return null;
+      }
+      // console.log(`*********** found hash 0x${hash.toString(16)}`);
       if (recordHash === hash) {
-        // eslint-disable-next-line no-use-before-define
-        return fs.read(self.fd, Buffer.from({ length: 8 }), 0, 8, recordPosition, readKey);
-      }
-      if (recordHash === 0) {
-        // console.log('*********** did not find data because there are no more records');
-        return callback(null, null);
-      }
-      // console.log('*********** searching in next slot because hash is different');
-      slot += 1;
-      return readSlot(slot);
-    }
+        // eslint-disable-next-line no-await-in-loop
+        const { buffer: recordHeader } = await asyncFs.read(this.fd, Buffer.from({ length: 8 }), 0, 8, recordPosition);
 
-    function readKey(err, bytesRead, buffer) {
-      if (err) {
-        return callback(err);
-      }
+        const keyLength = recordHeader.readUInt32LE(0);
+        const dataLength = recordHeader.readUInt32LE(4);
 
-      keyLength = buffer.readUInt32LE(0);
-      dataLength = buffer.readUInt32LE(4);
-
-      // In the rare case that there is a hash collision, check the key size
-      // to prevent reading in a key that will definitely not match.
-      if (keyLength !== trueKeyLength) {
-        // console.log('*********** searching in next slot because key length is different');
-        slot += 1;
-        return readSlot(slot);
-      }
-
-      // eslint-disable-next-line no-use-before-define
-      return fs.read(self.fd, Buffer.from({ length: keyLength }), 0, keyLength, recordPosition + 8, checkKey);
-    }
-
-    function checkKey(err, bytesRead, buffer) {
-      if (err) {
-        return callback(err);
-      }
-
-      if (buffer.toString() === key) {
-        // console.log('*********** found key');
-        if (offset === 0) {
-          // eslint-disable-next-line no-use-before-define
-          return fs.read(self.fd, Buffer.from({ length: dataLength }), 0, dataLength, recordPosition + 8 + keyLength, returnData);
+        // In the rare case that there is a hash collision, check the key size
+        // to prevent reading in a key that will definitely not match.
+        // console.log(`*********** keyLength ${keyLength} trueKeyLength ${trueKeyLength}`);
+        if (keyLength === trueKeyLength) {
+          // eslint-disable-next-line no-await-in-loop
+          const { buffer: keyPayload } = await asyncFs.read(this.fd, Buffer.from({ length: keyLength }), 0, keyLength, recordPosition + 8);
+          // console.log(`*********** found key ${keyPayload}`);
+          if (keyPayload.toString() === key) {
+            // console.log(`*********** same key - offset is ${offset}`);
+            if (offset === 0) {
+              // eslint-disable-next-line no-await-in-loop
+              const { buffer: valuePayload } = await asyncFs.read(this.fd, Buffer.from({ length: dataLength }), 0, dataLength, recordPosition + 8 + keyLength);
+              yield valuePayload;
+            } else {
+              // console.log(`*********** reducing offset ${offset} by 1`);
+              offset -= 1;
+            }
+          }
         }
-        // console.log(`*********** reducing offset ${offset} by 1`);
-        offset -= 1;
       }
-      slot += 1;
-      return readSlot(slot);
     }
-
-    function returnData(err, bytesRead, buffer) {
-      // Fill out bookmark information so getNext() will work
-      self.bookmark = function bookmark(newCallback) {
-        self.bookmark = null;
-        callback = newCallback;
-        slot += 1;
-        readSlot(slot);
-      };
-
-      // console.log(`*********** found data: ${buffer.toString()}`);
-      callback(err, buffer);
-    }
-
-    return readSlot(slot);
+    // console.log(`*********** did not find data because all records have been scanned ${slotCount}`);
+    return null;
   }
 
-  getNext(callback) {
-    if (!this.bookmark) {
-      return callback(null, null);
-    }
-    return this.bookmark(callback);
+  async get(key, offset = 0) {
+    return (await this.getIterator(key, offset).next()).value;
   }
 
   close(callback) {
