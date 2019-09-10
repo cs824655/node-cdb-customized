@@ -87,7 +87,7 @@ Opens the file (calls the raw-reader's `open()` function), and immediately cache
 
 `get(key, [offset])`
 
-Attempts to find the specified key, and calls the callback with an error (if not found) or the data for that key (if found). If an offset is specified, the cdb will return data for the *nth* record matching that key.
+Attempts to find the specified key, the data `Buffer` for that key (if found) or undefined (if not found). If an offset is specified, the cdb will return data for the *nth* record matching that key.
 
 `getIterator()`
 
