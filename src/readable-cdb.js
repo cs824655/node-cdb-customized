@@ -1,4 +1,4 @@
-const { RawBufferReader, RawFileReader } = require('./readers');
+const { castToReader } = require('./readers');
 const {
   pointerEncoding,
   slotIndexEncoding,
@@ -16,22 +16,24 @@ const {
 
 class Readable {
   constructor(reader, hash = defaultHash) {
-    if (typeof reader === 'string') {
-      this.reader = new RawFileReader(reader);
-    } else if (Buffer.isBuffer(reader)) {
-      this.reader = new RawBufferReader(reader);
-    } else {
-      this.reader = reader;
-    }
+    this.reader = castToReader(reader);
     this.header = new Array(TABLE_SIZE);
     this.hash = hash;
+  }
+
+  async readRaw(start, length) {
+    const buffer = await this.reader.read(start, length);
+    if (buffer.length < length) {
+      throw new Error('Unexpected end of buffer or file');
+    }
+    return buffer;
   }
 
   async open() {
     if (this.reader.open) {
       await this.reader.open();
     }
-    const buffer = await this.reader.read(0, HEADER_SIZE);
+    const buffer = await this.readRaw(0, HEADER_SIZE);
 
     let bufferPosition = 0;
     for (let i = 0; i < TABLE_SIZE; i += 1) {
@@ -72,7 +74,7 @@ class Readable {
       // console.log(`*********** reading slot ${slotIndex} at ${hashPosition}`);
 
       // eslint-disable-next-line no-await-in-loop
-      const slotBuffer = await this.reader.read(hashPosition, HASH_PAIR_SIZE);
+      const slotBuffer = await this.readRaw(hashPosition, HASH_PAIR_SIZE);
 
       const recordHash = hashEncoding.read(slotBuffer, 0);
       const recordPosition = pointerEncoding.read(slotBuffer, hashEncoding.size);
@@ -85,7 +87,7 @@ class Readable {
       // console.log(`*********** found hash 0x${hash.toString(16)}`);
       if (recordHash === hash) {
         // eslint-disable-next-line no-await-in-loop
-        const recordHeader = await this.reader.read(recordPosition, RECORD_HEADER_SIZE);
+        const recordHeader = await this.readRaw(recordPosition, RECORD_HEADER_SIZE);
 
         const keyLength = keyLengthEncoding.read(recordHeader, 0);
         const dataLength = dataLengthEncoding.read(recordHeader, keyLengthEncoding.size);
@@ -95,13 +97,13 @@ class Readable {
         // console.log(`*********** keyLength ${keyLength} trueKeyLength ${trueKeyLength}`);
         if (keyLength === key.length) {
           // eslint-disable-next-line no-await-in-loop
-          const keyPayload = await this.reader.read(recordPosition + RECORD_HEADER_SIZE, keyLength);
+          const keyPayload = await this.readRaw(recordPosition + RECORD_HEADER_SIZE, keyLength);
           // console.log(`*********** found key ${keyPayload}`);
           if (Buffer.compare(keyPayload, key) === 0) {
             // console.log(`*********** same key - offset is ${offset}`);
             if (offset === 0) {
               // eslint-disable-next-line no-await-in-loop
-              yield await this.reader.read(recordPosition + RECORD_HEADER_SIZE + keyLength, dataLength);
+              yield await this.readRaw(recordPosition + RECORD_HEADER_SIZE + keyLength, dataLength);
             } else {
               // console.log(`*********** reducing offset ${offset} by 1`);
               offset -= 1;

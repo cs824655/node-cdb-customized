@@ -4,7 +4,7 @@ const fs = require('fs');
 const toCallback = require('./to-callback');
 const Writable = require('../src/writable-cdb');
 const Readable = require('../src/readable-cdb');
-const { RawFileReader, CachedRawReaderWrapper } = require('../src/readers');
+const { CachedRawReaderWrapper } = require('../src/readers');
 
 const randomFile = 'test/random.tmp';
 
@@ -65,7 +65,7 @@ function iterateOverRecords(records, callback) {
 const recordCount = 1000;
 const randomRecords = generateRandomRecords(recordCount);
 
-function readBatch(readableCreator, unlink = false) {
+function readBatch(readableCreator) {
   return {
     topic() {
       toCallback(readableCreator().open(), this.callback);
@@ -108,17 +108,13 @@ function readBatch(readableCreator, unlink = false) {
     },
 
     teardown(cdb) {
-      toCallback((async () => {
-        await cdb.close();
-        if (unlink) {
-          fs.unlinkSync(randomFile);
-        }
-      })(), this.callback);
+      toCallback(cdb.close(), this.callback);
     },
   };
 }
 
-vows.describe('cdb-random-test').addBatch({
+vows.describe('cdb-random-test')
+.addBatch({
   'An opened writable cdb': {
     topic() {
       toCallback((new Writable(randomFile)).open(), this.callback);
@@ -146,8 +142,14 @@ vows.describe('cdb-random-test').addBatch({
       },
     },
   },
-}).addBatch({
-  // 'An opened readable cdb uncached': readBatch(() => new Readable(randomFile)),
-}).addBatch({
-  'An opened readable cdb cached': readBatch(() => new Readable(new CachedRawReaderWrapper(new RawFileReader(randomFile))), true),
-}).export(module);
+})
+.addBatch({
+  'An opened readable cdb uncached': readBatch(() => new Readable(randomFile)),
+  // Using small cache to test cache-cleanup
+  'An opened readable cdb cached': readBatch(() => new Readable(new CachedRawReaderWrapper(randomFile, { blockSize: 100, blocksLimit: 10 }))),
+  'An opened readable cdb buffer': readBatch(() => new Readable(fs.readFileSync(randomFile))),
+  teardown() {
+    fs.unlinkSync(randomFile);
+  },
+})
+.export(module);

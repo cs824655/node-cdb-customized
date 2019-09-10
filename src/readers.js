@@ -2,7 +2,6 @@
 // Should consider separating this file to a new package
 const fs = require('fs');
 const doAsync = require('doasync');
-const pLimit = require('p-limit');
 
 const asyncFs = doAsync(fs);
 
@@ -12,7 +11,6 @@ class RawFileReader {
   constructor(filename) {
     this.filename = filename;
     this.fd = null;
-    this.limit = pLimit(1);
   }
 
   async open() {
@@ -21,18 +19,7 @@ class RawFileReader {
 
   async read(start, length) {
     const self = this;
-    const { buffer, bytesRead } = await this.limit(async () => {
-      if (self.flag) {
-        console.log('!!!!!!!!!!!! WTF');
-      }
-      self.flag = true;
-      const result = await asyncFs.read(self.fd, Buffer.alloc(length), 0, length, start);
-      self.flag = false;
-      return result;
-    });
-    if (bytesRead < length) {
-      throw new Error('Unexpected end of file');
-    }
+    const { buffer } = await asyncFs.read(self.fd, Buffer.alloc(length), 0, length, start);
     return buffer;
   }
 
@@ -47,11 +34,24 @@ class RawBufferReader {
   }
 
   async read(start, length) {
-    if (this.buffer.length < start + length) {
-      throw new Error('Unexpected end of buffer');
-    }
     return this.buffer.slice(start, start + length);
   }
+}
+
+function castToReader(reader) {
+  if (typeof reader === 'string') {
+    return new RawFileReader(reader);
+  }
+  if (Buffer.isBuffer(reader)) {
+    return new RawBufferReader(reader);
+  }
+  if (!reader
+  || (typeof reader.read !== 'function')
+  || (reader.open && (typeof reader.open !== 'function'))
+  || (reader.close && (typeof reader.close !== 'function'))) {
+    throw new TypeError('Invalid reader, must have a read() function and if open and close are defined they should be functions');
+  }
+  return reader;
 }
 
 function quotient(a, b) { // floored division
@@ -59,10 +59,10 @@ function quotient(a, b) { // floored division
 }
 
 class CachedRawReaderWrapper {
-  constructor(reader, cacheRecordSize = 8192, cachedRecordsLimit = 1000) {
-    this.reader = reader;
-    this.cacheRecordSize = cacheRecordSize;
-    this.cachedRecordsLimit = cachedRecordsLimit;
+  constructor(reader, { blockSize = 8192, blocksLimit = 1000 } = {}) {
+    this.reader = castToReader(reader);
+    this.blockSize = blockSize;
+    this.blocksLimit = blocksLimit;
     this.newCache = new Map();
     this.oldCache = new Map();
   }
@@ -81,40 +81,30 @@ class CachedRawReaderWrapper {
     return null;
   }
 
-  async readRecord(index) {
-    return this.reader.read(index * this.cacheRecordSize, this.cacheRecordSize);
-    /*
-    const cachedRecord = this.newCache.get(index);
-    if (cachedRecord) {
-      return cachedRecord;
+  async readBlock(index) {
+    const cachedBlock = this.newCache.get(index);
+    if (cachedBlock) {
+      return cachedBlock;
     }
-    const record = this.oldCache.get(index) || await this.reader.read(index * this.cacheRecordSize, this.cacheRecordSize);
-    if (this.newCache.size >= this.cachedRecordsLimit / 2) {
+    const block = this.oldCache.get(index) || await this.reader.read(index * this.blockSize, this.blockSize);
+    if (this.newCache.size >= this.blocksLimit / 2) {
       this.oldCache = this.newCache;
       this.newCache = new Map();
     }
-    this.newCache.set(index, record);
-    return record;
-    */
+    this.newCache.set(index, block);
+    return block;
   }
 
   async read(start, length) {
-    const expected = await this.reader.read(start, length);
-    const startIndex = quotient(start, this.cacheRecordSize);
+    const startIndex = quotient(start, this.blockSize);
     const end = start + length;
-    const endIndex = quotient(end + this.cacheRecordSize - 1, this.cacheRecordSize);
-    const buffers = await Promise.all(Array.from({ length: endIndex - startIndex }, (_empty, index) => this.readRecord(startIndex + index)));
-    /*
-    const result = Buffer.concat(buffers).slice(start - startIndex * this.cacheRecordSize, end - startIndex * this.cacheRecordSize);
-    if (result.compare(expected) !== 0) {
-      console.log('!!!!!!! WTF');
-    }
-    */
-    
-    return expected;
+    const endIndex = quotient(end + this.blockSize - 1, this.blockSize);
+    const buffers = await Promise.all(Array.from({ length: endIndex - startIndex }, (_empty, index) => this.readBlock(startIndex + index)));
+    return Buffer.concat(buffers).slice(start - startIndex * this.blockSize, end - startIndex * this.blockSize);
   }
 }
 
+exports.castToReader = castToReader;
 exports.RawFileReader = RawFileReader;
 exports.RawBufferReader = RawBufferReader;
 exports.CachedRawReaderWrapper = CachedRawReaderWrapper;
