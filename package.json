@@ -32,6 +32,7 @@
     "node": true
   },
   "dependencies": {
-    "doasync": "2.0.1"
+    "doasync": "2.0.1",
+    "p-limit": "2.2.1"
   }
 }

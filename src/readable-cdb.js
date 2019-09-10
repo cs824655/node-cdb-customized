@@ -1,5 +1,4 @@
-const fs = require('fs');
-const doAsync = require('doasync');
+const { RawBufferReader, RawFileReader } = require('./readers');
 const {
   pointerEncoding,
   slotIndexEncoding,
@@ -14,53 +13,13 @@ const {
   defaultHash,
 } = require('./cdb-util');
 
-const asyncFs = doAsync(fs);
-
-// Readers should implement the "read" function, and optionally an async open function and an async close function.
-class FileReader {
-  constructor(filename) {
-    this.filename = filename;
-    this.fd = null;
-  }
-
-  async open() {
-    this.fd = await asyncFs.open(this.filename, 'r');
-  }
-
-  async read(start, length) {
-    const { buffer, bytesRead } = await asyncFs.read(this.fd, Buffer.alloc(length), 0, length, start);
-    if (bytesRead < length) {
-      throw new Error('Unexpected end of file');
-    }
-    return buffer;
-  }
-
-  async close() {
-    return asyncFs.close(this.fd);
-  }
-}
-
-class BufferReader {
-  constructor(buffer) {
-    this.buffer = buffer;
-  }
-
-  async read(start, length) {
-    const target = Buffer.alloc(length);
-    const bytesCopied = this.buffer.copy(target, 0, start, start + length);
-    if (bytesCopied < length) {
-      throw new Error('Unexpected end of buffer');
-    }
-    return target;
-  }
-}
 
 class Readable {
   constructor(reader, hash = defaultHash) {
     if (typeof reader === 'string') {
-      this.reader = new FileReader(reader);
+      this.reader = new RawFileReader(reader);
     } else if (Buffer.isBuffer(reader)) {
-      this.reader = new BufferReader(reader);
+      this.reader = new RawBufferReader(reader);
     } else {
       this.reader = reader;
     }

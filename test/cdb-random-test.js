@@ -4,6 +4,7 @@ const fs = require('fs');
 const toCallback = require('./to-callback');
 const Writable = require('../src/writable-cdb');
 const Readable = require('../src/readable-cdb');
+const { RawFileReader, CachedRawReaderWrapper } = require('../src/readers');
 
 const randomFile = 'test/random.tmp';
 
@@ -64,38 +65,10 @@ function iterateOverRecords(records, callback) {
 const recordCount = 1000;
 const randomRecords = generateRandomRecords(recordCount);
 
-vows.describe('cdb-random-test').addBatch({
-  'An opened writable cdb': {
+function readBatch(readableCreator, unlink = false) {
+  return {
     topic() {
-      toCallback((new Writable(randomFile)).open(), this.callback);
-    },
-
-    'should not error': (err, cdb) => { // eslint-disable-line no-unused-vars
-      assert.equal(err, null);
-    },
-
-    'should add records without exception': (err, cdb) => {
-      assert.doesNotThrow(() => {
-        iterateOverRecords(randomRecords, (key, offset, data) => {
-          cdb.put(key, data);
-        });
-      }, Error);
-    },
-
-    'should close': {
-      topic(cdb) {
-        toCallback(cdb.close(), this.callback);
-      },
-
-      'without error': (err) => {
-        assert.equal(err, null);
-      },
-    },
-  },
-}).addBatch({
-  'An opened readable cdb': {
-    topic() {
-      toCallback((new Readable(randomFile)).open(), this.callback);
+      toCallback(readableCreator().open(), this.callback);
     },
 
     'should not error': (err, cdb) => { // eslint-disable-line no-unused-vars
@@ -137,8 +110,44 @@ vows.describe('cdb-random-test').addBatch({
     teardown(cdb) {
       toCallback((async () => {
         await cdb.close();
-        fs.unlinkSync(randomFile);
+        if (unlink) {
+          fs.unlinkSync(randomFile);
+        }
       })(), this.callback);
     },
+  };
+}
+
+vows.describe('cdb-random-test').addBatch({
+  'An opened writable cdb': {
+    topic() {
+      toCallback((new Writable(randomFile)).open(), this.callback);
+    },
+
+    'should not error': (err, cdb) => { // eslint-disable-line no-unused-vars
+      assert.equal(err, null);
+    },
+
+    'should add records without exception': (err, cdb) => {
+      assert.doesNotThrow(() => {
+        iterateOverRecords(randomRecords, (key, offset, data) => {
+          cdb.put(key, data);
+        });
+      }, Error);
+    },
+
+    'should close': {
+      topic(cdb) {
+        toCallback(cdb.close(), this.callback);
+      },
+
+      'without error': (err) => {
+        assert.equal(err, null);
+      },
+    },
   },
+}).addBatch({
+  // 'An opened readable cdb uncached': readBatch(() => new Readable(randomFile)),
+}).addBatch({
+  'An opened readable cdb cached': readBatch(() => new Readable(new CachedRawReaderWrapper(new RawFileReader(randomFile))), true),
 }).export(module);
