@@ -16,18 +16,63 @@ const {
 
 const asyncFs = doAsync(fs);
 
-class Readable {
-  constructor(file, hash = defaultHash) {
-    this.file = file;
-    this.header = new Array(TABLE_SIZE);
-    this.hash = hash;
-
+// Readers should implement the "read" function, and optionally an async open function and an async close function.
+class FileReader {
+  constructor(filename) {
+    this.filename = filename;
     this.fd = null;
   }
 
   async open() {
-    this.fd = await asyncFs.open(this.file, 'r');
-    const { buffer } = await asyncFs.read(this.fd, Buffer.alloc(HEADER_SIZE), 0, HEADER_SIZE, 0);
+    this.fd = await asyncFs.open(this.filename, 'r');
+  }
+
+  async read(start, length) {
+    const { buffer, bytesRead } = await asyncFs.read(this.fd, Buffer.alloc(length), 0, length, start);
+    if (bytesRead < length) {
+      throw new Error('Unexpected end of file');
+    }
+    return buffer;
+  }
+
+  async close() {
+    return asyncFs.close(this.fd);
+  }
+}
+
+class BufferReader {
+  constructor(buffer) {
+    this.buffer = buffer;
+  }
+
+  async read(start, length) {
+    const target = Buffer.alloc(length);
+    const bytesCopied = this.buffer.copy(target, 0, start, start + length);
+    if (bytesCopied < length) {
+      throw new Error('Unexpected end of buffer');
+    }
+    return target;
+  }
+}
+
+class Readable {
+  constructor(reader, hash = defaultHash) {
+    if (typeof reader === 'string') {
+      this.reader = new FileReader(reader);
+    } else if (Buffer.isBuffer(reader)) {
+      this.reader = new BufferReader(reader);
+    } else {
+      this.reader = reader;
+    }
+    this.header = new Array(TABLE_SIZE);
+    this.hash = hash;
+  }
+
+  async open() {
+    if (this.reader.open) {
+      await this.reader.open();
+    }
+    const buffer = await this.reader.read(0, HEADER_SIZE);
 
     let bufferPosition = 0;
     for (let i = 0; i < TABLE_SIZE; i += 1) {
@@ -68,7 +113,7 @@ class Readable {
       // console.log(`*********** reading slot ${slotIndex} at ${hashPosition}`);
 
       // eslint-disable-next-line no-await-in-loop
-      const { buffer: slotBuffer } = await asyncFs.read(this.fd, Buffer.alloc(HASH_PAIR_SIZE), 0, HASH_PAIR_SIZE, hashPosition);
+      const slotBuffer = await this.reader.read(hashPosition, HASH_PAIR_SIZE);
 
       const recordHash = hashEncoding.read(slotBuffer, 0);
       const recordPosition = pointerEncoding.read(slotBuffer, hashEncoding.size);
@@ -81,7 +126,7 @@ class Readable {
       // console.log(`*********** found hash 0x${hash.toString(16)}`);
       if (recordHash === hash) {
         // eslint-disable-next-line no-await-in-loop
-        const { buffer: recordHeader } = await asyncFs.read(this.fd, Buffer.alloc(RECORD_HEADER_SIZE), 0, RECORD_HEADER_SIZE, recordPosition);
+        const recordHeader = await this.reader.read(recordPosition, RECORD_HEADER_SIZE);
 
         const keyLength = keyLengthEncoding.read(recordHeader, 0);
         const dataLength = dataLengthEncoding.read(recordHeader, keyLengthEncoding.size);
@@ -91,14 +136,13 @@ class Readable {
         // console.log(`*********** keyLength ${keyLength} trueKeyLength ${trueKeyLength}`);
         if (keyLength === key.length) {
           // eslint-disable-next-line no-await-in-loop
-          const { buffer: keyPayload } = await asyncFs.read(this.fd, Buffer.alloc(keyLength), 0, keyLength, recordPosition + RECORD_HEADER_SIZE);
+          const keyPayload = await this.reader.read(recordPosition + RECORD_HEADER_SIZE, keyLength);
           // console.log(`*********** found key ${keyPayload}`);
           if (Buffer.compare(keyPayload, key) === 0) {
             // console.log(`*********** same key - offset is ${offset}`);
             if (offset === 0) {
               // eslint-disable-next-line no-await-in-loop
-              const { buffer: valuePayload } = await asyncFs.read(this.fd, Buffer.alloc(dataLength), 0, dataLength, recordPosition + RECORD_HEADER_SIZE + keyLength);
-              yield valuePayload;
+              yield await this.reader.read(recordPosition + RECORD_HEADER_SIZE + keyLength, dataLength);
             } else {
               // console.log(`*********** reducing offset ${offset} by 1`);
               offset -= 1;
@@ -115,7 +159,10 @@ class Readable {
   }
 
   async close() {
-    await asyncFs.close(this.fd);
+    if (this.reader.close) {
+      return this.reader.close();
+    }
+    return null;
   }
 }
 
