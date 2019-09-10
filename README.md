@@ -1,4 +1,4 @@
-# node-constant-db [![Build Status](https://travis-ci.org/ozomer/node-cdb-64.svg?branch=master)](https://travis-ci.org/ozomer/node-cdb-64)
+# node constant-db64 [![Build Status](https://travis-ci.org/ozomer/node-cdb-64.svg?branch=master)](https://travis-ci.org/ozomer/node-cdb-64)
 A [cdb](http://cr.yp.to/cdb.html) implementation in node.js, supporting both read and write capabilities, using 64bit pointers and es6 features.
 
 ![alt text](./cdb64.png "Original image from: http://www.unixuser.org/~euske/doc/cdbinternals/index.html")
