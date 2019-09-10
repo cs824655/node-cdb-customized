@@ -4,7 +4,7 @@ const toCallback = require('../test/to-callback');
 
 const Writable = require('../src/writable-cdb');
 const Readable = require('../src/readable-cdb');
-const { CachedRawReaderWrapper } = require('../src/readers');
+const { RawDataReaderCacheWrapper } = require('../src/raw-data-readers');
 
 const pseudoRandom = (() => {
   // Lehmer random number generator
@@ -161,8 +161,8 @@ const readBenchmark = (name, readableCreator) => new Benchmark({
 Benchmark.process([
   writeBenchmark,
   readBenchmark('without cache', () => new Readable(CDB_FILE)),
-  readBenchmark('with small cache', () => new Readable(new CachedRawReaderWrapper(CDB_FILE, { blockSize: 2048, blocksLimit: 20 }))),
-  readBenchmark('with default cache', () => new Readable(new CachedRawReaderWrapper(CDB_FILE))),
+  readBenchmark('with small cache', () => new Readable(new RawDataReaderCacheWrapper(CDB_FILE, { blockSize: 2048, blocksLimit: 20 }))),
+  readBenchmark('with default cache', () => new Readable(new RawDataReaderCacheWrapper(CDB_FILE))),
 ], () => {
   fs.unlinkSync(CDB_FILE);
 });

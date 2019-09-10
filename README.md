@@ -17,7 +17,10 @@ Key-Length and Data-Length remain 4 bytes (32 bits) - this allows only 4GB for e
 * Using `getIterator()` instead of `getNext()`
 * Using 64 bits for pointers and hash-values
 * Writable and Readable are classes and therefore begin with a capital letter
-* Converting keys to buffers - not hashing utf8 strings directly (with `charCodeAt()`)
+* Converting keys to buffers instead of hashing utf8 strings directly (with `charCodeAt()`)
+* New default hash function that uses all 64bits
+* Two Raw-Data-Readers: files, buffers. Users can implement their own data reader (i.e. for online storage buckets)
+* Optional cache-wrapper for raw-data readers.
 
 ## Changes from v1.0.0
 * Renamed `getRecord()` to `get()`
@@ -29,9 +32,9 @@ Key-Length and Data-Length remain 4 bytes (32 bits) - this allows only 4GB for e
 ## Example
 Writable cdb:
 ```javascript
-var writable = require('constant-db').writable;
+const Writable = require('constant-db64').Writable;
 
-var writer = new writable('./cdbfile');
+const writer = new Writable('./cdbfile');
 await writer.open();
 writer.put('meow', 'hello world');
 await writer.close();
@@ -40,9 +43,9 @@ console.log('hooray!');
 
 Readable cdb:
 ```javascript
-var readable = require('constant-db').readable;
+const readable = require('constant-db64').readable;
 
-var reader = new readable('./cdbfile');
+const reader = new readable('./cdbfile');
 
 await reader.open();
 
@@ -56,11 +59,31 @@ console.log('awesome!');
 ## Documentation
 ### Readable cdb
 To create a new readable instance:
-`new require('constant-db').readable(file);`
+```javascript
+const constantDb = require('constant-db64');
+const reader = new constantDb.Readable(filename);
+```
+
+You can choose a different hash function by calling:
+```javascript
+new constantDb.Readable(filename, myHashFunction);
+```
+Your hash function must return a BigInt.
+
+For faster results that (using cache):
+```javascript
+const cacheReader = constandDb.rawDataReaders.RawDataReaderCacheWrapper(filename);
+const reader = new constantDb.Readable(cacheReader)
+```
+
+`new RawDataReaderCacheWrapper(filename, options)` can be called with the following options:
+* `blockSize` (default: 4096)
+* `blocksLimit` (default: 2000)
+
 
 `open()`
 
-Opens the file for reading, and immediately caches the header table for the cdb (2048 bytes).
+Opens the file (calls the raw-reader's `open()` function), and immediately caches the header table for the cdb (4098 bytes).
 
 `get(key, [offset])`
 
@@ -70,15 +93,27 @@ Attempts to find the specified key, and calls the callback with an error (if not
 
 Returns an async iterator (which also implements `AsyncIterable`), for finding multiple values for the same key. This should be slightly faster than calling `get()` with an offset.
 
-`close(callback(err, cdb))`
+`close()`
 
-Closes the file. No more records can be read after closing.
+Closes the file (calls the raw-reader's `close()` function). No more records can be read after closing.
+
+### Custom Raw-Data Reader
+
+You can also implement your own "Raw-Data Reader" (for example, to read data from an online storage bucket).
+Such object should have the following fields:
+* **required:** async `read(start, length)` function that returns a `Buffer`
+* optional: async `open()` function that will be called when the `Readable` is opened
+* optional: async `close()` function that will be called when the `Readable` is closed
+
+To use your raw-data reader, pass it as the first param to: `new Readable(myRawDataReader)` (instead of `filename`), or pass it as the first param to `new RawDataReaderCacheWrapper(myRawDataReader)` (instead of `filename`).
 
 ### Writable cdb
-To create a new writable instance:
-`new require('constant-cdb').writable(file);`
+To create a new Writable instance:
+`new require('constant-cdb64').Writable(filename);`
 
-`open(callback(err, cdb))`
+Unlike raw-data readers, the library **does not** support custom "raw-data writers" (i.e. for writing to an online storage bucket instead of a local file) because creating a constant-db file is more complicated than reading from a constant-db file. In a typical use-case of a **constant database** you would want to create the database file locally, upload it to your online-storage, and use it with your custom raw-data reader.
+
+`open()`
 
 Opens the file for writing. This will overwrite any file that currently exists, or create a new one if necessary.
 
@@ -86,9 +121,9 @@ Opens the file for writing. This will overwrite any file that currently exists, 
 
 Writes a record to the cdb.
 
-`close(callback(err, cdb))`
+`close()`
 
 Finalizes the cdb and closes the file. Calling `close()` is necessary to write out the header and subtables required for the cdb!
 
 ## Benchmark
-`node benchmarks/benchmark.js`
+`npm run benchmark`

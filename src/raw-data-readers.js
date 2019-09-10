@@ -7,7 +7,7 @@ const asyncFs = doAsync(fs);
 
 // Readers should implement the "read" function, and optionally an async open function and an async close function.
 
-class RawFileReader {
+class RawDataFileReader {
   constructor(filename) {
     this.filename = filename;
     this.fd = null;
@@ -28,7 +28,7 @@ class RawFileReader {
   }
 }
 
-class RawBufferReader {
+class RawDataBufferReader {
   constructor(buffer) {
     this.buffer = buffer;
   }
@@ -38,18 +38,18 @@ class RawBufferReader {
   }
 }
 
-function castToReader(reader) {
+function castToRawDataReader(reader) {
   if (typeof reader === 'string') {
-    return new RawFileReader(reader);
+    return new RawDataFileReader(reader);
   }
   if (Buffer.isBuffer(reader)) {
-    return new RawBufferReader(reader);
+    return new RawDataBufferReader(reader);
   }
   if (!reader
   || (typeof reader.read !== 'function')
   || (reader.open && (typeof reader.open !== 'function'))
   || (reader.close && (typeof reader.close !== 'function'))) {
-    throw new TypeError('Invalid reader, must have a read() function and if open and close are defined they should be functions');
+    throw new TypeError('Invalid raw-data reader - must have a read() function and if open and close are defined they should be functions');
   }
   return reader;
 }
@@ -58,9 +58,9 @@ function quotient(a, b) { // floored division
   return (a - (a % b)) / b;
 }
 
-class CachedRawReaderWrapper {
-  constructor(reader, { blockSize = 8192, blocksLimit = 1000 } = {}) {
-    this.reader = castToReader(reader);
+class RawDataReaderCacheWrapper {
+  constructor(reader, { blockSize = 4096, blocksLimit = 2000 } = {}) {
+    this.reader = castToRawDataReader(reader);
     this.blockSize = blockSize;
     this.blocksLimit = blocksLimit;
     this.newCache = new Map();
@@ -86,7 +86,11 @@ class CachedRawReaderWrapper {
     if (cachedBlock) {
       return cachedBlock;
     }
-    const block = this.oldCache.get(index) || await this.reader.read(index * this.blockSize, this.blockSize);
+    const oldCachedBlock = this.oldCache.get(index);
+    if (oldCachedBlock) {
+      this.oldCache.delete(index);
+    }
+    const block = oldCachedBlock || await this.reader.read(index * this.blockSize, this.blockSize);
     if (this.newCache.size >= this.blocksLimit / 2) {
       this.oldCache = this.newCache;
       this.newCache = new Map();
@@ -104,7 +108,7 @@ class CachedRawReaderWrapper {
   }
 }
 
-exports.castToReader = castToReader;
-exports.RawFileReader = RawFileReader;
-exports.RawBufferReader = RawBufferReader;
-exports.CachedRawReaderWrapper = CachedRawReaderWrapper;
+exports.castToRawDataReader = castToRawDataReader;
+exports.RawDataFileReader = RawDataFileReader;
+exports.RawDataBufferReader = RawDataBufferReader;
+exports.RawDataReaderCacheWrapper = RawDataReaderCacheWrapper;

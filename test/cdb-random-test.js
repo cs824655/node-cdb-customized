@@ -4,7 +4,7 @@ const fs = require('fs');
 const toCallback = require('./to-callback');
 const Writable = require('../src/writable-cdb');
 const Readable = require('../src/readable-cdb');
-const { CachedRawReaderWrapper } = require('../src/readers');
+const { RawDataReaderCacheWrapper } = require('../src/raw-data-readers');
 
 const randomFile = 'test/random.tmp';
 
@@ -146,7 +146,7 @@ vows.describe('cdb-random-test')
 .addBatch({
   'An opened readable cdb uncached': readBatch(() => new Readable(randomFile)),
   // Using small cache to test cache-cleanup
-  'An opened readable cdb cached': readBatch(() => new Readable(new CachedRawReaderWrapper(randomFile, { blockSize: 100, blocksLimit: 10 }))),
+  'An opened readable cdb cached': readBatch(() => new Readable(new RawDataReaderCacheWrapper(randomFile, { blockSize: 100, blocksLimit: 10 }))),
   'An opened readable cdb buffer': readBatch(() => new Readable(fs.readFileSync(randomFile))),
   teardown() {
     fs.unlinkSync(randomFile);

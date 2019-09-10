@@ -1,4 +1,4 @@
-const { castToReader } = require('./readers');
+const { castToRawDataReader } = require('./raw-data-readers');
 const {
   pointerEncoding,
   slotIndexEncoding,
@@ -16,7 +16,7 @@ const {
 
 class Readable {
   constructor(reader, hash = defaultHash) {
-    this.reader = castToReader(reader);
+    this.reader = castToRawDataReader(reader);
     this.header = new Array(TABLE_SIZE);
     this.hash = hash;
   }

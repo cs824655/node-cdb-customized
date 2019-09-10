@@ -16,7 +16,8 @@
   },
   "scripts": {
     "lint": "eslint ./src/ --ignore-path .gitignore",
-    "test": "vows --spec"
+    "test": "vows --spec",
+    "benchmark": "node benchmark/benchmark.js"
   },
   "keywords": [
     "cdb",
