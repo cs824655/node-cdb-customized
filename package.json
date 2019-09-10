@@ -12,7 +12,7 @@
     "eslint": "^6.3.0",
     "eslint-config-airbnb-base": "^14.0.0",
     "eslint-plugin-import": "^2.18.2",
-    "vows": "^0.8.0"
+    "vows": "^0.8.2"
   },
   "scripts": {
     "lint": "eslint ./src/ --ignore-path .gitignore",
