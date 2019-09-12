@@ -4,7 +4,8 @@ A [cdb](http://cr.yp.to/cdb.html) implementation in node.js, supporting both rea
 ![alt text](./cdb64.png "Original image from: http://www.unixuser.org/~euske/doc/cdbinternals/index.html")
 ###### Original image from: http://www.unixuser.org/~euske/doc/cdbinternals/index.html
 Notice that the pointers were increased to 64 bits to allow larger database.
-The hash-size also supports 64 bits - [cdb's default hash-function](http://cr.yp.to/cdb/cdb.txt) gives results of 32 bits, but other hash functions could be used instead.
+The hash-size also supports 64 bits, however [cdb's default hash-function (called djb2)](http://cr.yp.to/cdb/cdb.txt) gives results of only 32 bits.
+Therefore this library uses a similar hash function - the first 32 bits are calculated with *djb2*, and the rest 32 bits are taken from the paylod's prefix (yes, it's a very primitive hash function). You can also write your own hash-function that receives a `Buffer` and returns a `BigInt`, and pass this function to the *Readable*/*Writeable* constructor (see following documentation).
 Key-Length and Data-Length remain 4 bytes (32 bits) - this allows only 4GB for each key and each value, but saves space if the database contains lots of short key-value pairs (which is the typical use-case).
 
 
