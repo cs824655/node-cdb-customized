@@ -1,11 +1,11 @@
 {
-  "name": "constant-db64",
-  "version": "3.0.0",
-  "description": "A cdb implementation for node.js",
-  "author": "Oren Zomer",
+  "name": "constant-db-customized",
+  "version": "1.0.0",
+  "description": "A cdb implementation for node.js that allows customized hash function and 32/64-bit settings.",
+  "author": "Chen Chen",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ozomer/node-cdb-64.git"
+    "url": "https://github.com/cs824655/node-cdb-customized.git"
   },
   "devDependencies": {
     "babel-eslint": "^10.0.3",
@@ -26,9 +26,9 @@
   ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/ozomer/node-cdb-64/issues"
+    "url": "https://github.com/cs824655/node-cdb-customized/issues"
   },
-  "homepage": "https://github.com/ozomer/node-cdb-64",
+  "homepage": "https://github.com/cs824655/node-cdb-customized",
   "jshintConfig": {
     "node": true
   },
