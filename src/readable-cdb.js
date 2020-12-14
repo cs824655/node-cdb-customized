@@ -58,7 +58,7 @@ class Readable {
     }
 
     // eslint-disable-next-line no-bitwise
-    const initialSlot = (hash >> 8) % slotCount;
+    const initialSlot = (hash >>> 8) % slotCount;
 
     for (let slotIndex = 0; slotIndex < slotCount; slotIndex += 1) {
       const hashPosition = position + (((initialSlot + slotIndex) % slotCount) * this.encoding.hashPairSize);

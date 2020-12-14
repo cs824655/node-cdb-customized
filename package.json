@@ -1,6 +1,6 @@
 {
   "name": "constant-db-customized",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "A cdb implementation for node.js that allows customized hash function and 32/64-bit settings.",
   "author": "Chen Chen",
   "repository": {

@@ -55,7 +55,7 @@ class Writable {
       const { hash, position } = hashtable[i];
 
       // eslint-disable-next-line no-bitwise
-      let slot = (hash >> 8) % slotCount;
+      let slot = (hash >>> 8) % slotCount;
       // console.log(`*********** getBufferForHashtable checking empty slot ${slot}`);
       let bufferPosition = slot * this.encoding.hashPairSize;
 
@@ -118,7 +118,7 @@ class Writable {
     const record = Buffer.alloc(this.encoding.recordHeaderSize + key.length + data.length);
     const hash = this.hash(key);
     // eslint-disable-next-line no-bitwise
-    const hashtableIndex = hash & 0xFFn;
+    const hashtableIndex = hash & 0xFF;
 
     this.encoding.keyLengthEncoding.write(record, key.length, 0);
     this.encoding.dataLengthEncoding.write(record, data.length, this.encoding.keyLengthEncoding.size);
