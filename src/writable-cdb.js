@@ -43,7 +43,7 @@ class Writable {
   *
   * Entries are made up of two 32-bit unsigned integers for a total of 8 bytes.
   */
-  #getBufferForHashtable(hashtable) {
+  getBufferForHashtable(hashtable) {
     const { length } = hashtable;
     const slotCount = length * 2;
     const buffer = Buffer.alloc(slotCount * this.encoding.hashPairSize);
@@ -191,7 +191,7 @@ class Writable {
         const { length } = this.hashtables;
         for (let i = 0; i < length; i += 1) {
           const hashtable = this.hashtables[i] || [];
-          const buffer = this.#getBufferForHashtable(hashtable);
+          const buffer = this.getBufferForHashtable(hashtable);
 
           if (buffer.length > 0) {
             // console.log(`*********** writing the buffer at 0x${this.filePosition.toString(16)}`);
