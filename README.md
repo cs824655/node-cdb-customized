@@ -1,12 +1,18 @@
-# node constant-db64 [![Build Status](https://travis-ci.org/ozomer/node-cdb-64.svg?branch=master)](https://travis-ci.org/ozomer/node-cdb-64)
-A [cdb](http://cr.yp.to/cdb.html) implementation in node.js, supporting both read and write capabilities, using 64bit pointers and es6 features.
+# node constant-db-customized [![Build Status](https://travis-ci.org/github/cs824655/node-cdb-customized.svg?branch=master)](https://travis-ci.org/github/cs824655/node-cdb-customized)
+A [cdb](http://cr.yp.to/cdb.html) implementation in node.js, supporting both read and write capabilities, using 64bit pointers and es6 features by default. THis version also allow customized hash function as well as 32bit integers.
 
 ![alt text](./cdb64.png "Original image from: http://www.unixuser.org/~euske/doc/cdbinternals/index.html")
 ###### Original image from: http://www.unixuser.org/~euske/doc/cdbinternals/index.html
+The image above is for the default setting of this cdb reader and writer.
 Notice that the pointers were increased to 64 bits to allow larger database.
 The hash-size also supports 64 bits, however [cdb's default hash-function (called djb2)](http://cr.yp.to/cdb/cdb.txt) gives results of only 32 bits.
 Therefore this library uses a similar hash function - the first 32 bits are calculated with *djb2*, and the rest 32 bits are taken from the paylod's prefix (yes, it's a very primitive hash function). You can also write your own hash-function that receives a `Buffer` and returns a `BigInt`, and pass this function to the *Readable*/*Writeable* constructor (see following documentation).
 Key-Length and Data-Length remain 4 bytes (32 bits) - this allows only 4GB for each key and each value, but saves space if the database contains lots of short key-value pairs (which is the typical use-case).
+
+To make this work for more general use cases, you are allowed to pass optional parameters to specify whether to use 64bit or 32bit for some of all of the following values:
+* Pointers
+* Total number of slots in a subtable
+* Hash value of a key
 
 
 ## Installation
