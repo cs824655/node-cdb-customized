@@ -1,7 +1,7 @@
 const fs = require('fs');
 const doAsync = require('doasync');
 const { defaultHash } = require('./cdb-util');
-import Encoding from './cdb-encoding';
+const { Encoding } = require('./cdb-encoding');
 
 const asyncFs = doAsync(fs);
 

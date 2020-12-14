@@ -19,4 +19,4 @@ class Encoding {
   }
 }
 
-module.exports = Encoding;
+exports.Encoding = Encoding;

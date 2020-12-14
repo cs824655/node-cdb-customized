@@ -1,6 +1,6 @@
 const { castToRawDataReader } = require('./raw-data-readers');
 const { defaultHash } = require('./cdb-util');
-import Encoding from './cdb-encoding';
+const { Encoding } = require('./cdb-encoding');
 
 
 class Readable {
@@ -48,7 +48,7 @@ class Readable {
 
     const hash = this.hash(key);
     // eslint-disable-next-line no-bitwise
-    const { position, slotCount } = this.header[hash & 0xFFn];
+    const { position, slotCount } = this.header[hash & 0xFF];
     // console.log(`*********** position ${position} slotCount: ${slotCount}`);
 
     let offset = offsetParam;

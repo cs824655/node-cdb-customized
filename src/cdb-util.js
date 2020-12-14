@@ -41,7 +41,7 @@ function defaultHash(key) {
     key.copy(paddedKey);
   }
   // eslint-disable-next-line no-bitwise
-  return originalHash(key) + (paddedKey.readUInt32LE(0) << 32);
+  return originalHash(key);
 }
 
 module.exports = {
