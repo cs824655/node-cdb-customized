@@ -61,9 +61,9 @@ You can also pass in optional configurations for hash function and encodings, fo
 ```javascript
 const options = {
   hash: myHashFunction,
-  isPointer32Bit: true;
-  isSlotIndex32Bit: true;
-  isHash32Bit: true;
+  isPointer32Bit: true,
+  isSlotIndex32Bit: true,
+  isHash32Bit: true,
 }
 new constantDb.Readable(filename, options);
 ```
