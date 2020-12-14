@@ -1,70 +1,19 @@
 const fs = require('fs');
 const doAsync = require('doasync');
-const {
-  pointerEncoding,
-  slotIndexEncoding,
-  keyLengthEncoding,
-  dataLengthEncoding,
-  hashEncoding,
-  TABLE_SIZE,
-  HEADER_SIZE,
-  MAIN_PAIR_SIZE,
-  HASH_PAIR_SIZE,
-  RECORD_HEADER_SIZE,
-  defaultHash,
-} = require('./cdb-util');
+const { defaultHash } = require('./cdb-util');
+import Encoding from './cdb-encoding';
 
 const asyncFs = doAsync(fs);
 
-// === Helper functions ===
-
-/*
-* Returns an allocated buffer containing the binary representation of a CDB
-* hashtable. Hashtables are linearly probed, and use a load factor of 0.5, so
-* the buffer will have 2n slots for n entries.
-*
-* Entries are made up of two 32-bit unsigned integers for a total of 8 bytes.
-*/
-function getBufferForHashtable(hashtable) {
-  const { length } = hashtable;
-  const slotCount = length * 2;
-  const buffer = Buffer.alloc(slotCount * HASH_PAIR_SIZE);
-
-  // zero out the buffer
-  buffer.fill(0);
-
-  for (let i = 0; i < length; i += 1) {
-    const { hash, position } = hashtable[i];
-
-    // eslint-disable-next-line no-bitwise
-    let slot = Number((hash >> 8n) % BigInt(slotCount));
-    // console.log(`*********** getBufferForHashtable checking empty slot ${slot}`);
-    let bufferPosition = slot * HASH_PAIR_SIZE;
-
-    // look for an empty slot
-    while (pointerEncoding.read(buffer, bufferPosition + hashEncoding.size) !== 0) {
-      // this slot is occupied
-      slot = (slot + 1) % slotCount;
-      bufferPosition = slot * HASH_PAIR_SIZE;
-      // console.log(`*********** getBufferForHashtable slot was not empty, checking empty slot ${slot}`);
-    }
-
-    // console.log(`*********** getBufferForHashtable bufferPosition: ${bufferPosition} pointing to hash: 0x${hash.toString(16)} position: 0x${position.toString(16)}`);
-    hashEncoding.write(buffer, hash, bufferPosition);
-    pointerEncoding.write(buffer, position, bufferPosition + hashEncoding.size);
-  }
-
-  return buffer;
-}
-
 class Writable {
-  constructor(file, hash = defaultHash) {
+  constructor(file, options) {
+    this.encoding = new Encoding(options ? options : {});
     this.file = file;
     this.filePosition = 0;
-    this.hash = hash;
+    this.hash = (options && options.hash) ? options.hash : defaultHash;
 
-    this.header = new Array(TABLE_SIZE);
-    this.hashtables = new Array(TABLE_SIZE);
+    this.header = new Array(this.encoding.tableSize);
+    this.hashtables = new Array(this.encoding.tableSize);
 
     this.hashtableStream = null;
     this.recordStream = null;
@@ -85,9 +34,50 @@ class Writable {
     };
   }
 
+  // === Helper functions ===
+
+  /*
+  * Returns an allocated buffer containing the binary representation of a CDB
+  * hashtable. Hashtables are linearly probed, and use a load factor of 0.5, so
+  * the buffer will have 2n slots for n entries.
+  *
+  * Entries are made up of two 32-bit unsigned integers for a total of 8 bytes.
+  */
+  #getBufferForHashtable(hashtable) {
+    const { length } = hashtable;
+    const slotCount = length * 2;
+    const buffer = Buffer.alloc(slotCount * this.encoding.hashPairSize);
+
+    // zero out the buffer
+    buffer.fill(0);
+
+    for (let i = 0; i < length; i += 1) {
+      const { hash, position } = hashtable[i];
+
+      // eslint-disable-next-line no-bitwise
+      let slot = (hash >> 8) % slotCount;
+      // console.log(`*********** getBufferForHashtable checking empty slot ${slot}`);
+      let bufferPosition = slot * this.encoding.hashPairSize;
+
+      // look for an empty slot
+      while (this.encoding.pointerEncoding.read(buffer, bufferPosition + this.encoding.hashEncoding.size) !== 0) {
+        // this slot is occupied
+        slot = (slot + 1) % slotCount;
+        bufferPosition = slot * this.encoding.hashPairSize;
+        // console.log(`*********** getBufferForHashtable slot was not empty, checking empty slot ${slot}`);
+      }
+
+      // console.log(`*********** getBufferForHashtable bufferPosition: ${bufferPosition} pointing to hash: 0x${hash.toString(16)} position: 0x${position.toString(16)}`);
+      this.encoding.hashEncoding.write(buffer, hash, bufferPosition);
+      this.encoding.pointerEncoding.write(buffer, position, bufferPosition + this.encoding.hashEncoding.size);
+    }
+
+    return buffer;
+  }
+
   async open() {
-    // console.log(`*********** opening file for writing: ${this.file} at start 0x${HEADER_SIZE.toString(16)}`);
-    const recordStream = fs.createWriteStream(this.file, { start: HEADER_SIZE });
+    // console.log(`*********** opening file for writing: ${this.file} at start 0x${this.encoding.headerSize.toString(16)}`);
+    const recordStream = fs.createWriteStream(this.file, { start: this.encoding.headerSize });
 
     return new Promise((resolve, reject) => {
       let alreadyFinished = false;
@@ -97,7 +87,7 @@ class Writable {
           return;
         }
         this.recordStream = recordStream;
-        this.filePosition = HEADER_SIZE;
+        this.filePosition = this.encoding.headerSize;
         recordStream.once('error', this._recordStreamErrorSaver);
         recordStream.on('drain', this._recordStreamDrainCaller);
         recordStream.removeListener('error', onceError);
@@ -125,15 +115,15 @@ class Writable {
     if (this.recordStreamError) {
       throw this.recordStreamError; // if set write operations are no longer permitted
     }
-    const record = Buffer.alloc(RECORD_HEADER_SIZE + key.length + data.length);
+    const record = Buffer.alloc(this.encoding.recordHeaderSize + key.length + data.length);
     const hash = this.hash(key);
     // eslint-disable-next-line no-bitwise
     const hashtableIndex = hash & 0xFFn;
 
-    keyLengthEncoding.write(record, key.length, 0);
-    dataLengthEncoding.write(record, data.length, keyLengthEncoding.size);
-    key.copy(record, RECORD_HEADER_SIZE);
-    data.copy(record, RECORD_HEADER_SIZE + key.length);
+    this.encoding.keyLengthEncoding.write(record, key.length, 0);
+    this.encoding.dataLengthEncoding.write(record, data.length, this.encoding.keyLengthEncoding.size);
+    key.copy(record, this.encoding.recordHeaderSize);
+    data.copy(record, this.encoding.recordHeaderSize + key.length);
 
     // console.log(`*********** writing key ${key} data ${data} record ${record.toString('hex')} to file position 0x${this.filePosition.toString(16)}`);
     const drainPromise = this.recordStream.write(record) ? null : new Promise((resolve, reject) => {
@@ -201,7 +191,7 @@ class Writable {
         const { length } = this.hashtables;
         for (let i = 0; i < length; i += 1) {
           const hashtable = this.hashtables[i] || [];
-          const buffer = getBufferForHashtable(hashtable);
+          const buffer = this.#getBufferForHashtable(hashtable);
 
           if (buffer.length > 0) {
             // console.log(`*********** writing the buffer at 0x${this.filePosition.toString(16)}`);
@@ -250,15 +240,15 @@ class Writable {
     * header. The header contains 255 (count, position) pairs representing the
     * number of slots and position of the hashtables.
     */
-    const buffer = Buffer.alloc(HEADER_SIZE);
+    const buffer = Buffer.alloc(this.encoding.headerSize);
     let bufferPosition = 0;
 
-    for (let i = 0; i < TABLE_SIZE; i += 1) {
+    for (let i = 0; i < this.encoding.tableSize; i += 1) {
       const { position, slots } = this.header[i];
 
-      pointerEncoding.write(buffer, position, bufferPosition);
-      slotIndexEncoding.write(buffer, slots, bufferPosition + pointerEncoding.size); // 4 bytes per int
-      bufferPosition += MAIN_PAIR_SIZE;
+      this.encoding.pointerEncoding.write(buffer, position, bufferPosition);
+      this.encoding.slotIndexEncoding.write(buffer, slots, bufferPosition + this.encoding.pointerEncoding.size); // 4 bytes per int
+      bufferPosition += this.encoding.mainPairSize;
     }
 
     await asyncFs.writeFile(this.file, buffer, { flag: 'r+' });

@@ -1,4 +1,4 @@
-# node constant-db-customized [![Build Status](https://travis-ci.org/github/cs824655/node-cdb-customized.svg?branch=master)](https://travis-ci.org/github/cs824655/node-cdb-customized)
+# node constant-db-customized [![Build Status](https://travis-ci.com/cs824655/node-cdb-customized.svg?branch=master)](https://travis-ci.com/github/cs824655/node-cdb-customized)
 A [cdb](http://cr.yp.to/cdb.html) implementation in node.js, supporting both read and write capabilities, using 64bit pointers and es6 features by default. THis version also allow customized hash function as well as 32bit integers.
 
 ![alt text](./cdb64.png "Original image from: http://www.unixuser.org/~euske/doc/cdbinternals/index.html")
@@ -6,40 +6,26 @@ A [cdb](http://cr.yp.to/cdb.html) implementation in node.js, supporting both rea
 The image above is for the default setting of this cdb reader and writer.
 Notice that the pointers were increased to 64 bits to allow larger database.
 The hash-size also supports 64 bits, however [cdb's default hash-function (called djb2)](http://cr.yp.to/cdb/cdb.txt) gives results of only 32 bits.
-Therefore this library uses a similar hash function - the first 32 bits are calculated with *djb2*, and the rest 32 bits are taken from the paylod's prefix (yes, it's a very primitive hash function). You can also write your own hash-function that receives a `Buffer` and returns a `BigInt`, and pass this function to the *Readable*/*Writeable* constructor (see following documentation).
+Therefore this library uses a similar hash function - the first 32 bits are calculated with *djb2*, and the rest 32 bits are taken from the paylod's prefix (yes, it's a very primitive hash function). You can also write your own hash-function that receives a `Buffer` and returns a `Number`, and pass this function to the *Readable*/*Writeable* constructor (see following documentation).
 Key-Length and Data-Length remain 4 bytes (32 bits) - this allows only 4GB for each key and each value, but saves space if the database contains lots of short key-value pairs (which is the typical use-case).
 
-To make this work for more general use cases, you are allowed to pass optional parameters to specify whether to use 64bit or 32bit for some of all of the following values:
+To make this work for more general use cases, you are allowed to pass optional parameters to specify whether to use 64bit or 32bit for some of all of the following values (by default, they are all 64-bit integers):
 * Pointers
 * Total number of slots in a subtable
 * Hash value of a key
 
 
 ## Installation
-`npm install constant-db64`
+`npm install constant-db-customized`
 
-## Changes from original v2.0.0
-* Replacing error-first-callbacks with promises using async-await
-* Writable is not an EventEmitter
-* Using `getIterator()` instead of `getNext()`
-* Using 64 bits for pointers and hash-values
-* Writable and Readable are classes and therefore begin with a capital letter
-* Converting keys to buffers instead of hashing utf8 strings directly (with `charCodeAt()`)
-* New default hash function that uses all 64bits
-* Two Raw-Data-Readers: files, buffers. Users can implement their own data reader (i.e. for online storage buckets)
-* Optional cache-wrapper for raw-data readers.
-
-## Changes from v1.0.0
-* Renamed `getRecord()` to `get()`
-* Renamed `putRecord()` to `put()`
-* Added `getNext()`
-* Dropped promise support
-* Completely rewritten! `get()` calls should be much faster.
+## Changes from the forked package [constant-db64 V3.0.0] 
+* When instantiating cdb Reader or Writer, it allows an optional overwrite of hash functions, pointer size, slot index size and hash value size.
+* Hash function is no longer required to return `BigInt`.
 
 ## Example
 Writable cdb:
 ```javascript
-const Writable = require('constant-db64').Writable;
+const Writable = require('constant-db-customized').Writable;
 
 const writer = new Writable('./cdbfile');
 await writer.open();
@@ -50,7 +36,7 @@ console.log('hooray!');
 
 Readable cdb:
 ```javascript
-const readable = require('constant-db64').readable;
+const readable = require('constant-db-customized').readable;
 
 const reader = new readable('./cdbfile');
 
@@ -67,20 +53,25 @@ console.log('awesome!');
 ### Readable cdb
 To create a new readable instance:
 ```javascript
-const constantDb = require('constant-db64');
+const constantDb = require('constant-db-customized');
 const reader = new constantDb.Readable(filename);
 ```
 
-You can choose a different hash function by calling:
+You can also pass in optional configurations for hash function and encodings, for example:
 ```javascript
-new constantDb.Readable(filename, myHashFunction);
+const options = {
+  hash: myHashFunction,
+  isPointer32Bit: true;
+  isSlotIndex32Bit: true;
+  isHash32Bit: true;
+}
+new constantDb.Readable(filename, options);
 ```
-Your hash function must return a BigInt.
 
 For faster results that (using cache):
 ```javascript
 const cacheReader = constandDb.rawDataReaders.RawDataReaderCacheWrapper(filename);
-const reader = new constantDb.Readable(cacheReader)
+const reader = new constantDb.Readable(cacheReader, options);
 ```
 
 `new RawDataReaderCacheWrapper(filename, options)` can be called with the following options:
@@ -116,9 +107,10 @@ To use your raw-data reader, pass it as the first param to: `new Readable(myRawD
 
 ### Writable cdb
 To create a new Writable instance:
-`new require('constant-cdb64').Writable(filename);`
 
-Unlike raw-data readers, the library **does not** support custom "raw-data writers" (i.e. for writing to an online storage bucket instead of a local file) because creating a constant-db file is more complicated than reading from a constant-db file. In a typical use-case of a **constant database** you would want to create the database file locally, upload it to your online-storage, and use it with your custom raw-data reader.
+`new require('constant-cdb-customized').Writable(filename);`
+
+You can also pass in options just like Readable. However, unlike raw-data readers, the library **does not** support custom "raw-data writers" (i.e. for writing to an online storage bucket instead of a local file) because creating a constant-db file is more complicated than reading from a constant-db file. In a typical use-case of a **constant database** you would want to create the database file locally, upload it to your online-storage, and use it with your custom raw-data reader.
 
 `open()`
 

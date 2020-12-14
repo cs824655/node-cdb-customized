@@ -19,33 +19,6 @@ const uInt64LE = {
   },
 };
 
-const uInt64LEBigInt = {
-  size: 8,
-  // eslint-disable-next-line no-bitwise
-  read: (buffer, offset = 0) => BigInt(buffer.readUInt32LE(offset)) + (BigInt(buffer.readUInt32LE(offset + 4)) << 32n),
-  write: (buffer, value, offset = 0) => {
-    // eslint-disable-next-line no-bitwise
-    buffer.writeUInt32LE(Number(value & 0xFFFFFFFFn), offset);
-    // eslint-disable-next-line no-bitwise
-    buffer.writeUInt32LE(Number(value >> 32n), offset + 4);
-  },
-};
-
-const pointerEncoding = uInt64LE;
-const slotIndexEncoding = uInt64LE;
-
-const keyLengthEncoding = uInt32LE;
-const dataLengthEncoding = uInt32LE;
-
-const hashEncoding = uInt64LEBigInt;
-
-const TABLE_SIZE = 256;
-const HEADER_SIZE = TABLE_SIZE * (pointerEncoding.size + slotIndexEncoding.size);
-const MAIN_PAIR_SIZE = pointerEncoding.size + slotIndexEncoding.size;
-const HASH_PAIR_SIZE = hashEncoding.size + pointerEncoding.size;
-const RECORD_HEADER_SIZE = keyLengthEncoding.size + dataLengthEncoding.size;
-
-// hash functions must return a BigInt
 function originalHash(key) {
   // DJB hash
   const { length } = key;
@@ -57,7 +30,7 @@ function originalHash(key) {
   }
 
   // console.log(`*********** hash is: 0x${hash.toString(16)}`);
-  return BigInt(hash);
+  return hash;
 }
 
 function defaultHash(key) {
@@ -68,20 +41,12 @@ function defaultHash(key) {
     key.copy(paddedKey);
   }
   // eslint-disable-next-line no-bitwise
-  return originalHash(key) + (BigInt(paddedKey.readUInt32LE(0)) << 32n);
+  return originalHash(key) + (paddedKey.readUInt32LE(0) << 32);
 }
 
 module.exports = {
-  pointerEncoding,
-  slotIndexEncoding,
-  keyLengthEncoding,
-  dataLengthEncoding,
-  hashEncoding,
-  TABLE_SIZE,
-  HEADER_SIZE,
-  MAIN_PAIR_SIZE,
-  HASH_PAIR_SIZE,
-  RECORD_HEADER_SIZE,
+  uInt32LE,
+  uInt64LE,
   originalHash,
   defaultHash,
 };
